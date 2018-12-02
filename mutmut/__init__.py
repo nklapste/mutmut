@@ -315,7 +315,6 @@ class Context(object):
         if self.mutation_id == ALL:
             return True
 
-        print(self.mutation_id, self.mutation_id_of_current_index)
         return self.mutation_id in (ALL, self.mutation_id_of_current_index)
 
 

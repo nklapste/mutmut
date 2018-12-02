@@ -9,7 +9,7 @@ from itertools import groupby
 
 from pony.orm import Database, Required, db_session, Set, Optional, select, PrimaryKey, RowNotFound, ERDiagramError, OperationalError
 
-from mutmut import BAD_TIMEOUT, OK_SUSPICIOUS, BAD_SURVIVED, UNTESTED, OK_KILLED
+from mutmut import BAD_TIMEOUT, OK_SUSPICIOUS, BAD_SURVIVED, UNTESTED, OK_KILLED, MutationID
 
 if sys.version_info < (3, 0):   # pragma: no cover (python 2 specific)
     # noinspection PyUnresolvedReferences
@@ -61,8 +61,12 @@ def init_db(f):
             # If the existing cache file is out of data, delete it and start over
             with db_session:
                 try:
-                    existing_db_version = int(MiscData.get(key='version') or 1)
-                except (RowNotFound, ERDiagramError):
+                    v = MiscData.get(key='version')
+                    if v is None:
+                        existing_db_version = 1
+                    else:
+                        existing_db_version = int(v.value)
+                except (RowNotFound, ERDiagramError, OperationalError):
                     existing_db_version = 1
 
             if existing_db_version != current_db_version:
@@ -72,7 +76,8 @@ def init_db(f):
                 db.generate_mapping(create_tables=True)
 
             with db_session:
-                MiscData(key='version', value=str(current_db_version))
+                v = get_or_create(MiscData, key='version')
+                v.value = str(current_db_version)
 
         return f(*args, **kwargs)
     return wrapper
@@ -163,7 +168,7 @@ def register_mutants(mutations_by_file):
 @db_session
 def update_mutant_status(file_to_mutate, mutation_id, status, tests_hash):
     sourcefile = SourceFile.get(filename=file_to_mutate)
-    line = Line.get(sourcefile=sourcefile, line=mutation_id.line)
+    line = Line.get(sourcefile=sourcefile, line=mutation_id.line, line_number=mutation_id.line_number)
     mutant = Mutant.get(line=line, index=mutation_id.index)
     mutant.status = status
     mutant.tested_against_hash = tests_hash
@@ -173,7 +178,7 @@ def update_mutant_status(file_to_mutate, mutation_id, status, tests_hash):
 @db_session
 def cached_mutation_status(filename, mutation_id, hash_of_tests):
     sourcefile = SourceFile.get(filename=filename)
-    line = Line.get(sourcefile=sourcefile, line=mutation_id.line)
+    line = Line.get(sourcefile=sourcefile, line=mutation_id.line, line_number=mutation_id.line_number)
     mutant = Mutant.get(line=line, index=mutation_id.index)
 
     if mutant.status == OK_KILLED:
@@ -190,7 +195,7 @@ def cached_mutation_status(filename, mutation_id, hash_of_tests):
 @db_session
 def mutation_id_from_pk(pk):
     mutant = Mutant.get(id=pk)
-    return mutant.line.line, mutant.index
+    return MutationID(line=mutant.line.line, index=mutant.index, line_number=mutant.line.line_number)
 
 
 @init_db
