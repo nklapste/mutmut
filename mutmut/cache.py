@@ -3,11 +3,13 @@
 import hashlib
 import os
 import sys
+from difflib import SequenceMatcher
 from functools import wraps
 from io import open
 from itertools import groupby
 
 from pony.orm import Database, Required, db_session, Set, Optional, select, PrimaryKey, RowNotFound, ERDiagramError, OperationalError
+from tri.struct import FrozenStruct
 
 from mutmut import BAD_TIMEOUT, OK_SUSPICIOUS, BAD_SURVIVED, UNTESTED, OK_KILLED, MutationID
 
@@ -72,7 +74,7 @@ def init_db(f):
             if existing_db_version != current_db_version:
                 print('mutmut cache is out of date, clearing it...')
                 db.drop_all_tables(with_all_data=True)
-                db.schema = None  # Pony otherwise thinks we've already generated schemasregister_mutants
+                db.schema = None  # Pony otherwise thinks we've already created the tables
                 db.generate_mapping(create_tables=True)
 
             with db_session:
@@ -147,11 +149,40 @@ def get_or_create(model, defaults=None, **params):
         return obj
 
 
+def update_line_numbers(sourcefile, mutation_ids):
+    cached_lines = [
+        FrozenStruct(line=x.line, line_number=x.line_number)
+        for x in sourcefile.lines.order_by(Line.line_number)
+    ]
+
+    lines_from_mutation_ids = [
+        FrozenStruct(line=x.line, line_number=x.line_number)
+        for x in mutation_ids
+    ]
+
+    if not cached_lines:
+        for x in lines_from_mutation_ids:
+            get_or_create(Line, sourcefile=sourcefile, line=x.line, line_number=x.line_number)
+        return
+
+    sequence_matcher = SequenceMatcher(a=cached_lines, b=lines_from_mutation_ids)
+    if sourcefile.filename == 'lib/tri/declarative/__init__.py':
+        print(sourcefile.filename)
+        for block in sequence_matcher.get_matching_blocks():
+            print(block)
+
+        import ipdb; ipdb.set_trace()
+
+
 @init_db
 @db_session
 def register_mutants(mutations_by_file):
     for filename, mutation_ids in mutations_by_file.items():
         sourcefile = get_or_create(SourceFile, filename=filename)
+
+        update_line_numbers(sourcefile, mutation_ids)
+
+        # TODO: handle line cleanup in update_line_numbers
         lines_to_be_removed = {x.id: x for x in sourcefile.lines}
         for mutation_id in mutation_ids:
             line = get_or_create(Line, sourcefile=sourcefile, line=mutation_id.line, line_number=mutation_id.line_number)
