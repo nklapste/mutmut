@@ -8,7 +8,21 @@ from tri.declarative import evaluate
 
 __version__ = '1.0.1'
 
-ALL = ('all', -1)
+
+class MutationID(object):
+    def __init__(self, line, index, line_number):
+        self.line = line
+        self.index = index
+        self.line_number = line_number
+
+    def __repr__(self):
+        return 'MutationID(line="%s", index=%s, line_number=%s)' % (self.line, self.index, self.line_number)
+
+    def __eq__(self, other):
+        return (self.line, self.index, self.line_number) == (other.line, other.index, other.line_number)
+
+
+ALL = MutationID(line='%all%', index=-1, line_number=-1)
 
 
 if sys.version_info < (3, 0):   # pragma: no cover (python 2 specific)
@@ -253,15 +267,13 @@ mutations_by_type = {
 
 
 class Context(object):
-    def __init__(self, source=None, mutate_id=ALL, dict_synonyms=None, filename=None, exclude=lambda context: False, config=None):
+    def __init__(self, source=None, mutation_id=ALL, dict_synonyms=None, filename=None, exclude=lambda context: False, config=None):
         self.index = 0
         self.source = source
-        self.mutate_id = mutate_id
+        self.mutation_id = mutation_id
         self.number_of_performed_mutations = 0
         self.performed_mutation_ids = []
-        assert isinstance(mutate_id, tuple)
-        assert isinstance(mutate_id[0], text_types)
-        assert isinstance(mutate_id[1], int)
+        assert isinstance(mutation_id, MutationID)
         self.current_line_index = 0
         self.filename = filename
         self.exclude = exclude
@@ -286,8 +298,8 @@ class Context(object):
         return self.source_by_line_number[self.current_line_index]
 
     @property
-    def mutate_id_of_current_index(self):
-        return self.current_source_line, self.index
+    def mutation_id_of_current_index(self):
+        return MutationID(line=self.current_source_line, index=self.index, line_number=self.current_line_index)
 
     @property
     def pragma_no_mutate_lines(self):
@@ -300,10 +312,11 @@ class Context(object):
         return self._pragma_no_mutate_lines
 
     def should_mutate(self):
-        if self.mutate_id == ALL:
+        if self.mutation_id == ALL:
             return True
 
-        return self.mutate_id in (ALL, self.mutate_id_of_current_index)
+        print(self.mutation_id, self.mutation_id_of_current_index)
+        return self.mutation_id in (ALL, self.mutation_id_of_current_index)
 
 
 def mutate(context):
@@ -346,7 +359,7 @@ def mutate_node(i, context):
             mutate_list_of_nodes(i, context=context)
 
             # this is just an optimization to stop early
-            if context.number_of_performed_mutations and context.mutate_id != ALL:
+            if context.number_of_performed_mutations and context.mutation_id != ALL:
                 return
 
         m = mutations_by_type.get(t)
@@ -370,12 +383,12 @@ def mutate_node(i, context):
             if new != old:
                 if context.should_mutate():
                     context.number_of_performed_mutations += 1
-                    context.performed_mutation_ids.append(context.mutate_id_of_current_index)
+                    context.performed_mutation_ids.append(context.mutation_id_of_current_index)
                     setattr(i, key, new)
                 context.index += 1
 
             # this is just an optimization to stop early
-            if context.number_of_performed_mutations and context.mutate_id != ALL:
+            if context.number_of_performed_mutations and context.mutation_id != ALL:
                 return
     finally:
         context.stack.pop()
@@ -393,7 +406,7 @@ def mutate_list_of_nodes(result, context):
         mutate_node(i, context=context)
 
         # this is just an optimization to stop early
-        if context.number_of_performed_mutations and context.mutate_id != ALL:
+        if context.number_of_performed_mutations and context.mutation_id != ALL:
             return
 
 
@@ -401,7 +414,7 @@ def count_mutations(context):
     """
     :type context: Context
     """
-    assert context.mutate_id == ALL
+    assert context.mutation_id == ALL
     mutate(context)
     return context.number_of_performed_mutations
 
@@ -410,7 +423,7 @@ def list_mutations(context):
     """
     :type context: Context
     """
-    assert context.mutate_id == ALL
+    assert context.mutation_id == ALL
     mutate(context)
     return context.performed_mutation_ids
 

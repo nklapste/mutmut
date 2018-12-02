@@ -104,7 +104,7 @@ def get_or_guess_paths_to_mutate(paths_to_mutate):
 def do_apply(mutation_pk, dict_synonyms, backup):
     filename, mutation_id = filename_and_mutation_id_from_pk(int(mutation_pk))
     context = Context(
-        mutate_id=mutation_id,
+        mutation_id=mutation_id,
         filename=filename,
         dict_synonyms=dict_synonyms,
     )
@@ -205,7 +205,7 @@ commands:\n
         context = Context(
             source=source,
             filename=filename,
-            mutate_id=mutation_id,
+            mutation_id=mutation_id,
             dict_synonyms=dict_synonyms,
         )
         mutated_source, number_of_mutations_performed = mutate(context)
@@ -395,7 +395,7 @@ def tests_pass(config):
 
 def run_mutation(config, filename, mutation_id):
     context = Context(
-        mutate_id=mutation_id,
+        mutation_id=mutation_id,
         filename=filename,
         exclude=config.exclude_callback,
         dict_synonyms=config.dict_synonyms,

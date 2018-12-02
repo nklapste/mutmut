@@ -149,8 +149,8 @@ def register_mutants(mutations_by_file):
         sourcefile = get_or_create(SourceFile, filename=filename)
         lines_to_be_removed = {x.id: x for x in sourcefile.lines}
         for mutation_id in mutation_ids:
-            line = get_or_create(Line, sourcefile=sourcefile, line=mutation_id[0])
-            get_or_create(Mutant, line=line, index=mutation_id[1], defaults=dict(status=UNTESTED))
+            line = get_or_create(Line, sourcefile=sourcefile, line=mutation_id.line, line_number=mutation_id.line_number)
+            get_or_create(Mutant, line=line, index=mutation_id.index, defaults=dict(status=UNTESTED))
             if line.id in lines_to_be_removed:
                 del lines_to_be_removed[line.id]
 
@@ -163,8 +163,8 @@ def register_mutants(mutations_by_file):
 @db_session
 def update_mutant_status(file_to_mutate, mutation_id, status, tests_hash):
     sourcefile = SourceFile.get(filename=file_to_mutate)
-    line = Line.get(sourcefile=sourcefile, line=mutation_id[0])
-    mutant = Mutant.get(line=line, index=mutation_id[1])
+    line = Line.get(sourcefile=sourcefile, line=mutation_id.line)
+    mutant = Mutant.get(line=line, index=mutation_id.index)
     mutant.status = status
     mutant.tested_against_hash = tests_hash
 
@@ -173,8 +173,8 @@ def update_mutant_status(file_to_mutate, mutation_id, status, tests_hash):
 @db_session
 def cached_mutation_status(filename, mutation_id, hash_of_tests):
     sourcefile = SourceFile.get(filename=filename)
-    line = Line.get(sourcefile=sourcefile, line=mutation_id[0])
-    mutant = Mutant.get(line=line, index=mutation_id[1])
+    line = Line.get(sourcefile=sourcefile, line=mutation_id.line)
+    mutant = Mutant.get(line=line, index=mutation_id.index)
 
     if mutant.status == OK_KILLED:
         # We assume that if a mutant was killed, a change to the test suite will mean it's still killed
