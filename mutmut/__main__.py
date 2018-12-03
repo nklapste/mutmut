@@ -18,7 +18,8 @@ from time import sleep
 import click
 from glob2 import glob
 
-from mutmut.cache import register_mutants, update_mutant_status, print_result_cache, cached_mutation_status, mutation_id_from_pk, filename_and_mutation_id_from_pk, cached_test_time, set_cached_test_time
+from mutmut.cache import register_mutants, update_mutant_status, print_result_cache, cached_mutation_status, \
+    mutation_id_from_pk, filename_and_mutation_id_from_pk, cached_test_time, set_cached_test_time, update_line_numbers
 from . import mutate_file, Context, list_mutations, __version__, BAD_TIMEOUT, OK_SUSPICIOUS, BAD_SURVIVED, OK_KILLED, UNTESTED, mutate
 from .cache import hash_of_tests
 
@@ -304,6 +305,7 @@ Legend for output:
         if argument is None:
             for path in paths_to_mutate:
                 for filename in python_source_files(path, tests_dirs):
+                    update_line_numbers(filename)
                     add_mutations_by_file(mutations_by_file, filename, _exclude, dict_synonyms)
         else:
             filename, mutation_id = filename_and_mutation_id_from_pk(int(argument))

@@ -6,10 +6,9 @@ import sys
 from difflib import SequenceMatcher
 from functools import wraps
 from io import open
-from itertools import groupby
+from itertools import groupby, zip_longest
 
 from pony.orm import Database, Required, db_session, Set, Optional, select, PrimaryKey, RowNotFound, ERDiagramError, OperationalError
-from tri.struct import FrozenStruct
 
 from mutmut import BAD_TIMEOUT, OK_SUSPICIOUS, BAD_SURVIVED, UNTESTED, OK_KILLED, MutationID
 
@@ -37,7 +36,7 @@ class SourceFile(db.Entity):
 
 class Line(db.Entity):
     sourcefile = Required(SourceFile)
-    line = Required(text_type, autostrip=False)
+    line = Optional(text_type, autostrip=False)
     line_number = Required(int)
     mutants = Set('Mutant')
 
@@ -149,29 +148,57 @@ def get_or_create(model, defaults=None, **params):
         return obj
 
 
-def update_line_numbers(sourcefile, mutation_ids):
-    cached_lines = [
-        FrozenStruct(line=x.line, line_number=x.line_number)
-        for x in sourcefile.lines.order_by(Line.line_number)
-    ]
+def sequence_ops(a, b):
+    sequence_matcher = SequenceMatcher(a=a, b=b)
 
-    lines_from_mutation_ids = [
-        FrozenStruct(line=x.line, line_number=x.line_number)
-        for x in mutation_ids
-    ]
+    for tag, i1, i2, j1, j2 in sequence_matcher.get_opcodes():
+        a_sub_sequence = a[i1:i2]
+        b_sub_sequence = b[j1:j2]
+        for x in zip_longest(a_sub_sequence, range(i1, i2), b_sub_sequence, range(j1, j2)):
+            yield (tag,) + x
+
+
+@init_db
+@db_session
+def update_line_numbers(filename):
+    sourcefile = get_or_create(SourceFile, filename=filename)
+
+    cached_line_objects = list(sourcefile.lines.order_by(Line.line_number))
+
+    cached_lines = [x.line for x in cached_line_objects]
+
+    with open(filename) as f:
+        # :-1 to remove newline at the end
+        existing_lines = [x[:-1] for x in f.readlines()]
 
     if not cached_lines:
-        for x in lines_from_mutation_ids:
-            get_or_create(Line, sourcefile=sourcefile, line=x.line, line_number=x.line_number)
+        for i, line in enumerate(existing_lines):
+            Line(sourcefile=sourcefile, line=line, line_number=i)
         return
 
-    sequence_matcher = SequenceMatcher(a=cached_lines, b=lines_from_mutation_ids)
-    if sourcefile.filename == 'lib/tri/declarative/__init__.py':
-        print(sourcefile.filename)
-        for block in sequence_matcher.get_matching_blocks():
-            print(block)
+    for command, a, a_index, b, b_index in sequence_ops(cached_lines, existing_lines):
+        if command == 'equal':
+            if a_index != b_index:
+                print('moved line number for ', a)
+                cached_obj = cached_line_objects[a_index]
+                assert cached_obj.line == existing_lines[b_index]
+                cached_obj.line_number = b_index
 
-        import ipdb; ipdb.set_trace()
+        elif command == 'delete':
+            print('delete', a)
+            cached_line_objects[a_index].delete()
+
+        elif command == 'insert':
+            print('insert', b)
+            Line(sourcefile=sourcefile, line=b, line_number=b_index)
+
+        elif command == 'replace':
+            print('replace', a, b)
+            cached_line_objects[a_index].delete()
+            Line(sourcefile=sourcefile, line=b, line_number=b_index)
+
+        else:
+            assert False, 'unknown opcode from SequenceMatcher: %s' % tag
 
 
 @init_db
@@ -180,19 +207,10 @@ def register_mutants(mutations_by_file):
     for filename, mutation_ids in mutations_by_file.items():
         sourcefile = get_or_create(SourceFile, filename=filename)
 
-        update_line_numbers(sourcefile, mutation_ids)
-
-        # TODO: handle line cleanup in update_line_numbers
-        lines_to_be_removed = {x.id: x for x in sourcefile.lines}
         for mutation_id in mutation_ids:
-            line = get_or_create(Line, sourcefile=sourcefile, line=mutation_id.line, line_number=mutation_id.line_number)
+            line = Line.get(sourcefile=sourcefile, line=mutation_id.line, line_number=mutation_id.line_number)
+            assert line is not None
             get_or_create(Mutant, line=line, index=mutation_id.index, defaults=dict(status=UNTESTED))
-            if line.id in lines_to_be_removed:
-                del lines_to_be_removed[line.id]
-
-        # These lines no longer exists in the code, clean them out
-        for line in lines_to_be_removed.values():
-            line.delete()
 
 
 @init_db
