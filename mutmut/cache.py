@@ -54,27 +54,29 @@ def init_db(f):
         if db.provider is None:
             cache_filename = os.path.join(os.getcwd(), '.mutmut-cache')
             db.bind(provider='sqlite', filename=cache_filename, create_db=True)
+
             try:
                 db.generate_mapping(create_tables=True)
             except OperationalError:
                 pass
 
-            # If the existing cache file is out of data, delete it and start over
-            with db_session:
-                try:
-                    v = MiscData.get(key='version')
-                    if v is None:
+            if os.path.exists(cache_filename):
+                # If the existing cache file is out of data, delete it and start over
+                with db_session:
+                    try:
+                        v = MiscData.get(key='version')
+                        if v is None:
+                            existing_db_version = 1
+                        else:
+                            existing_db_version = int(v.value)
+                    except (RowNotFound, ERDiagramError, OperationalError):
                         existing_db_version = 1
-                    else:
-                        existing_db_version = int(v.value)
-                except (RowNotFound, ERDiagramError, OperationalError):
-                    existing_db_version = 1
 
-            if existing_db_version != current_db_version:
-                print('mutmut cache is out of date, clearing it...')
-                db.drop_all_tables(with_all_data=True)
-                db.schema = None  # Pony otherwise thinks we've already created the tables
-                db.generate_mapping(create_tables=True)
+                if existing_db_version != current_db_version:
+                    print('mutmut cache is out of date, clearing it...')
+                    db.drop_all_tables(with_all_data=True)
+                    db.schema = None  # Pony otherwise thinks we've already created the tables
+                    db.generate_mapping(create_tables=True)
 
             with db_session:
                 v = get_or_create(MiscData, key='version')
