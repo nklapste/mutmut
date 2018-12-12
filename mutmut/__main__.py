@@ -9,7 +9,7 @@ import sys
 from os.path import exists
 from shutil import copy
 
-from mutmut.cache import hash_of_tests
+from mutmut.cache import hash_of_tests, update_line_numbers
 from mutmut.file_collection import guess_paths_to_mutate, read_coverage_data, \
     get_python_source_files, get_tests_dirs
 from mutmut.runner import time_test_suite, \
@@ -104,6 +104,7 @@ def main(argv=sys.argv[1:]):
 
     for path in paths_to_mutate:
         for filename in get_python_source_files(path, tests_dirs):
+            update_line_numbers(filename)
             add_mutations_by_file(mutations_by_file, filename, _exclude)
 
     total = sum(len(mutations) for mutations in mutations_by_file.values())

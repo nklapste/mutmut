@@ -7,17 +7,23 @@ from parso import parse
 from parso.python.tree import Name
 from tri.declarative import evaluate
 
-ALL = ('all', -1)
 
-# variable names we should skip modifying as we are sure that proper
-# python practice avoids this being significant to mutate
-SKIP_NAMES = [
-    "__author__",
-    "__copyright__",
-    "__license__",
-    "__version__",
-    "__summary__"
-]
+class MutationID(object):
+    def __init__(self, line, index, line_number):
+        self.line = line
+        self.index = index
+        self.line_number = line_number
+
+    def __repr__(self):
+        return 'MutationID(line="%s", index=%s, line_number=%s)' % (
+        self.line, self.index, self.line_number)
+
+    def __eq__(self, other):
+        return (self.line, self.index, self.line_number) == (
+        other.line, other.index, other.line_number)
+
+
+ALL = MutationID(line='%all%', index=-1, line_number=-1)
 
 
 def number_mutation(value, **_):
@@ -259,6 +265,19 @@ mutations_by_type = {
 
 # TODO: detect regexes and mutate them in nasty ways? Maybe mutate all strings as if they are regexes
 
+# We have a global whitelist for constants of the pattern __all__, __version__, etc
+dunder_whitelist = [
+    'all',
+    'version',
+    'title',
+    'package_name',
+    'author',
+    'description',
+    'email',
+    'version',
+    'license',
+    'copyright',
+]
 
 class MutationContext(object):
     def __init__(self, source=None, mutate_id=ALL,
@@ -291,8 +310,16 @@ class MutationContext(object):
         self.config = config
 
     def exclude_line(self):
-        return self.current_line_index in self.pragma_no_mutate_lines or \
-               self.exclude(context=self)
+        # return self.current_line_index in self.pragma_no_mutate_lines or \
+        #        self.exclude(context=self)
+        current_line = self.source_by_line_number[self.current_line_index]
+        if current_line.startswith('__'):
+            word, _, rest = current_line[2:].partition('__')
+            if word in dunder_whitelist and rest.strip()[0] == '=':
+                return True
+
+        if current_line.strip() == "__import__('pkg_resources').declare_namespace(__name__)":
+            return True
 
     @property
     def source_by_line_number(self):
@@ -306,7 +333,8 @@ class MutationContext(object):
 
     @property
     def mutate_id_of_current_index(self):
-        return self.current_source_line, self.index
+        return MutationID(line=self.current_source_line, index=self.index,
+                          line_number=self.current_line_index)
 
     @property
     def pragma_no_mutate_lines(self):
@@ -355,10 +383,7 @@ def mutate_node(node, context):
     :param context:
     :type context: MutationContext
     """
-    # proto
-    if node.type == 'expr_stmt' and \
-            node.get_code().split()[0] in SKIP_NAMES:
-        return
+
     context.stack.append(node)
     try:
 
@@ -388,12 +413,6 @@ def mutate_node(node, context):
             old = getattr(node, key)
             if context.exclude_line():
                 continue
-            # TODO: move to a filter?
-            if node.type == 'name' and \
-                    node.value in SKIP_NAMES:
-                print(node)
-                continue
-            # TODO: add more filters
             new = evaluate(
                 value,
                 context=context,

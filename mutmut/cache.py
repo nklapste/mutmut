@@ -6,12 +6,14 @@ and mutation cache"""
 
 import hashlib
 import os
+from difflib import SequenceMatcher
 from functools import wraps
 from io import open
+from itertools import zip_longest
 
 from pony.orm import Database, Required, db_session, Set, Optional, PrimaryKey
 
-from mutmut.mutators import MutationContext, mutate
+from mutmut.mutators import MutationContext, mutate, MutationID
 
 db = Database()
 
@@ -34,7 +36,8 @@ class SourceFile(db.Entity):
 
 class Line(db.Entity):
     sourcefile = Required(SourceFile)
-    line = Required(str, autostrip=False)
+    line = Optional(str, autostrip=False)
+    line_number = Required(int)
     mutants = Set('Mutant')
 
 
@@ -119,13 +122,18 @@ def register_mutants(mutations_by_file):
         sourcefile = get_or_create(SourceFile, filename=filename)
         lines_to_be_removed = {x.id: x for x in sourcefile.lines}
         for mutation_id in mutation_ids:
-            line = get_or_create(Line, sourcefile=sourcefile, line=mutation_id[0])
-            get_or_create(Mutant, line=line, index=mutation_id[1], defaults=dict(status=UNTESTED))
-            if line.id in lines_to_be_removed:
-                del lines_to_be_removed[line.id]
+            print(mutation_id)
+            line = Line.get(sourcefile=sourcefile, line=mutation_id.line,
+                            line_number=mutation_id.line_number)
+            print(line)
+            # assert line is not None
+            continue
+            get_or_create(Mutant, line=line, index=mutation_id.index,
+                          defaults=dict(status=UNTESTED))
 
         # These lines no longer exists in the code, clean them out
         for line in lines_to_be_removed.values():
+            print("Del" + str(line))
             line.delete()
 
 
@@ -147,10 +155,63 @@ def update_mutant_status(file_to_mutate, mutation_id, status, tests_hash):
     :type tests_hash: str
     """
     sourcefile = SourceFile.get(filename=file_to_mutate)
-    line = Line.get(sourcefile=sourcefile, line=mutation_id[0])
-    mutant = Mutant.get(line=line, index=mutation_id[1])
+    line = Line.get(sourcefile=sourcefile, line=mutation_id.line,
+                    line_number=mutation_id.line_number)
+    mutant = Mutant.get(line=line, index=mutation_id.index)
+
     mutant.status = status
     mutant.tested_against_hash = tests_hash
+
+
+def sequence_ops(a, b):
+    sequence_matcher = SequenceMatcher(a=a, b=b)
+
+    for tag, i1, i2, j1, j2 in sequence_matcher.get_opcodes():
+        a_sub_sequence = a[i1:i2]
+        b_sub_sequence = b[j1:j2]
+        for x in zip_longest(a_sub_sequence, range(i1, i2), b_sub_sequence,
+                             range(j1, j2)):
+            yield (tag,) + x
+
+
+@init_db
+@db_session
+def update_line_numbers(filename):
+    sourcefile = get_or_create(SourceFile, filename=filename)
+
+    cached_line_objects = list(sourcefile.lines.order_by(Line.line_number))
+
+    cached_lines = [x.line for x in cached_line_objects]
+
+    with open(filename) as f:
+        # :-1 to remove newline at the end
+        existing_lines = [x[:-1] for x in f.readlines()]
+
+    if not cached_lines:
+        for i, line in enumerate(existing_lines):
+            Line(sourcefile=sourcefile, line=line, line_number=i)
+        return
+
+    for command, a, a_index, b, b_index in sequence_ops(cached_lines,
+                                                        existing_lines):
+        if command == 'equal':
+            if a_index != b_index:
+                cached_obj = cached_line_objects[a_index]
+                assert cached_obj.line == existing_lines[b_index]
+                cached_obj.line_number = b_index
+
+        elif command == 'delete':
+            cached_line_objects[a_index].delete()
+
+        elif command == 'insert':
+            Line(sourcefile=sourcefile, line=b, line_number=b_index)
+
+        elif command == 'replace':
+            cached_line_objects[a_index].delete()
+            Line(sourcefile=sourcefile, line=b, line_number=b_index)
+
+        else:
+            assert False, 'unknown opcode from SequenceMatcher: %s' % command
 
 
 def get_differ(filename, mutation_id):
@@ -195,8 +256,11 @@ def get_cached_mutation_status(filename, mutation_id, hash_of_tests):
     :rtype: str
     """
     sourcefile = SourceFile.get(filename=filename)
-    line = Line.get(sourcefile=sourcefile, line=mutation_id[0])
-    mutant = Mutant.get(line=line, index=mutation_id[1])
+
+    line = Line.get(sourcefile=sourcefile, line=mutation_id.line,
+                    line_number=mutation_id.line_number)
+    mutant = Mutant.get(line=line, index=mutation_id.index)
+
     if mutant.status == OK_KILLED:
         # We assume that if a mutant was killed, a change to the test
         # suite will mean it's still killed
@@ -212,7 +276,8 @@ def get_cached_mutation_status(filename, mutation_id, hash_of_tests):
 @db_session
 def mutation_id_from_pk(pk):
     mutant = Mutant.get(id=pk)
-    return mutant.line.line, mutant.index
+    return MutationID(line=mutant.line.line, index=mutant.index,
+                      line_number=mutant.line.line_number)
 
 
 @init_db
