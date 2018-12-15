@@ -112,7 +112,6 @@ setup(
     zip_safe=False,
     keywords='',
     install_requires=[
-        "click",
         "glob2",
         "parso",
         "pony",
