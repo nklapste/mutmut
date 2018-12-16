@@ -137,8 +137,12 @@ setup(
         "Framework :: Pytest",
     ],
     test_suite='tests',
-    cmdclass={'tag': Tag,
-              'release_check': ReleaseCheck, "test": PyTest, "lint": Pylint},
+    cmdclass={
+        'tag': Tag,
+        'release_check': ReleaseCheck,
+        "test": PyTest,
+        "lint": Pylint
+    },
     # if I add entry_points while pytest runs,
     # it imports before the coverage collecting starts
     entry_points={
