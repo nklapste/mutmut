@@ -69,8 +69,7 @@ class Mutant:
         return Context(
             source=source,
             mutation_id=self.mutation,
-            filename=self.source_file,
-            dict_synonyms=["dict"],  # TODO:
+            filename=self.source_file
         )
 
     @property
@@ -174,7 +173,7 @@ def argument_mutation(children, context, **_):
     power_node = context.stack[stack_pos_of_power_node]
 
     if power_node.children[0].type == 'name' and \
-            power_node.children[0].value in context.dict_synonyms:
+            power_node.children[0].value in ['dict']:
         children = children[:]
         child = children[0]
         if child.type == 'name':
@@ -337,7 +336,7 @@ mutations_by_type = {
 
 
 class Context(object):
-    def __init__(self, source=None, mutation_id=ALL, dict_synonyms=None,
+    def __init__(self, source=None, mutation_id=ALL,
                  filename=None, exclude=lambda context: False):
         self.index = 0
         self.source = source
@@ -349,7 +348,6 @@ class Context(object):
         self.filename = filename
         self.exclude = exclude
         self.stack = []
-        self.dict_synonyms = (dict_synonyms or []) + ['dict']
         self._source_by_line_number = None
         self._pragma_no_mutate_lines = None
 
@@ -523,7 +521,7 @@ def mutate_file(backup, context):
     return number_of_mutations_performed
 
 
-def gen_mutations_for_file(filename, exclude, dict_synonyms):
+def gen_mutations_for_file(filename, exclude):
     """
 
     :param mutations_by_file:
@@ -532,16 +530,12 @@ def gen_mutations_for_file(filename, exclude, dict_synonyms):
     :param filename: the file to create mutants in
     :type filename: str
 
-    :param dict_synonyms:
-    :type: TODO
-
     :param exclude:
     """
     context = Context(
         source=open(filename).read(),
         filename=filename,
         exclude=exclude,
-        dict_synonyms=dict_synonyms,
     )
     for mutant in list_mutations(context):
         yield Mutant(filename, mutant)

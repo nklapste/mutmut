@@ -41,7 +41,6 @@ def get_argparser():
         description="Simple mutation testing for python.",
         formatter_class=argparse.ArgumentDefaultsHelpFormatter
     )
-    parser.add_argument("--dict-synonyms", required=False, nargs="*")  # TODO: help values
     parser.add_argument("-b", "--backup", action="store_true", dest="backup")  # TODO: help values
     parser.add_argument("-s", "--sources", nargs="*",
                             help="Path to the source package(s)/file(s) to "
