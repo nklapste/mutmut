@@ -52,11 +52,6 @@ Legend for output:
 """
 
 
-null_out = open(os.devnull, 'w')
-
-DEFAULT_TESTS_DIR = 'tests/:test/'
-
-
 def get_argparser():
     """Get the main argument parser for mutmut
 
