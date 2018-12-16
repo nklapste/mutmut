@@ -113,7 +113,6 @@ setup(
     install_requires=[
         "glob2",
         "parso",
-        "tri.declarative",
     ],
     tests_require=[
         "pytest>=2.8.7",

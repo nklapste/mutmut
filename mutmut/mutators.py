@@ -7,7 +7,6 @@ import sys
 
 from parso import parse
 from parso.python.tree import Name
-from tri.declarative import evaluate
 
 if sys.version_info < (3, 0):  # pragma: no cover (python 2 specific)
     # noinspection PyUnresolvedReferences
@@ -455,13 +454,14 @@ def mutate_node(node, context):
             if context.exclude_line():
                 continue
 
-            new = evaluate(
-                value,
+            # TODO: figure usage
+            new = value(
                 context=context,
                 node=node,
                 value=getattr(node, 'value', None),
                 children=getattr(node, 'children', None),
             )
+
             assert not callable(new)
             if new != old:
                 if context.should_mutate():
