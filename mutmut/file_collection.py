@@ -7,7 +7,6 @@ testing and generating a dictionary of valid mutations"""
 import os
 from os.path import isdir
 
-from setuptools import find_packages
 
 def python_source_files(path, tests_dirs):
     """Yield the paths to all python source files
