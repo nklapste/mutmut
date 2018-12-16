@@ -51,8 +51,6 @@ from mutmut.mutators import Context, mutate, ALL, MutationID, list_mutations
         ('0o1', '2'),
         ('1.0e10', '10000000001.0'),
         ("dict(a=b)", "dict(aXX=b)"),
-        ("Struct(a=b)", "Struct(aXX=b)"),
-        ("FooBarDict(a=b)", "FooBarDict(aXX=b)"),
         ('lambda **kwargs: Variable.integer(**setdefaults(kwargs, dict(show=False)))', 'lambda **kwargs: None'),
         ('lambda **kwargs: None', 'lambda **kwargs: 0'),
         ('a = {x for x in y}', 'a = None'),
@@ -61,7 +59,7 @@ from mutmut.mutators import Context, mutate, ALL, MutationID, list_mutations
     ]
 )
 def test_basic_mutations(original, expected):
-    actual = mutate(Context(source=original, mutation_id=ALL, dict_synonyms=['Struct', 'FooBarDict']))[0]
+    actual = mutate(Context(source=original, mutation_id=ALL))[0]
     assert actual == expected
 
 
@@ -72,7 +70,7 @@ def test_basic_mutations(original, expected):
     ]
 )
 def test_basic_mutations_python3(original, expected):
-    actual = mutate(Context(source=original, mutation_id=ALL, dict_synonyms=['Struct', 'FooBarDict']))[0]
+    actual = mutate(Context(source=original, mutation_id=ALL))[0]
     assert actual == expected
 
 
@@ -84,7 +82,7 @@ def test_basic_mutations_python3(original, expected):
     ]
 )
 def test_basic_mutations_python36(original, expected):
-    actual = mutate(Context(source=original, mutation_id=ALL, dict_synonyms=['Struct', 'FooBarDict']))[0]
+    actual = mutate(Context(source=original, mutation_id=ALL))[0]
     assert actual == expected
 
 
@@ -102,7 +100,7 @@ def test_basic_mutations_python36(original, expected):
     ]
 )
 def test_do_not_mutate(source):
-    actual = mutate(Context(source=source, mutation_id=ALL, dict_synonyms=['Struct', 'FooBarDict']))[0]
+    actual = mutate(Context(source=source, mutation_id=ALL))[0]
     assert actual == source
 
 
@@ -113,7 +111,7 @@ def test_do_not_mutate(source):
     ]
 )
 def test_do_not_mutate_python3(source):
-    actual = mutate(Context(source=source, mutation_id=ALL, dict_synonyms=['Struct', 'FooBarDict']))[0]
+    actual = mutate(Context(source=source, mutation_id=ALL))[0]
     assert actual == source
 
 
