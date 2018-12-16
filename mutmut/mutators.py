@@ -30,11 +30,11 @@ DUNDER_WHITELIST = [
     'copyright',
 ]
 
-UNTESTED = 'untested'
-OK_KILLED = 'ok_killed'
-OK_SUSPICIOUS = 'ok_suspicious'
-BAD_TIMEOUT = 'bad_timeout'
-BAD_SURVIVED = 'bad_survived'
+UNTESTED = 'UNTESTED'
+OK_KILLED = 'OK_KILLED'
+OK_SUSPICIOUS = 'OK_SUSPICIOUS'
+BAD_TIMEOUT = 'BAD_TIMEOUT'
+BAD_SURVIVED = 'BAD_SURVIVED'
 
 
 class MutationID(object):
@@ -57,9 +57,8 @@ ALL = MutationID(line='%all%', index=-1, line_number=-1)
 
 class Mutant:
 
-    def __init__(self, source_file, line_number, mutation, status=UNTESTED):
+    def __init__(self, source_file, mutation, status=UNTESTED):
         self.source_file = source_file
-        self.line_number = line_number
         self.mutation = mutation
         self.status = status
 
@@ -70,6 +69,23 @@ class Mutant:
             filename=self.source_file,
             dict_synonyms=["dict"],  # TODO:
         )
+
+    @property
+    def mutation_original_pair(self):
+        with open(self.source_file) as f:
+            source = f.read()
+        context = Context(
+            source=source,
+            filename=self.source_file,
+            mutation_id=self.mutation,
+        )
+        mutated_source, number_of_mutations_performed = mutate(context)
+        mutant = set(mutated_source.splitlines(keepends=True))
+        normie = set(source.splitlines(keepends=True))
+        mutation = list(mutant - normie)
+        original = list(normie - mutant)
+        # TODO: better generation
+        return original[0].strip(), mutation[0].strip()
 
     def apply(self, backup=True):
         """Apply the mutation, modify the source file and create a backup"""
@@ -539,4 +555,4 @@ def gen_mutations_for_file(filename, exclude, dict_synonyms):
         dict_synonyms=dict_synonyms,
     )
     for mutant in list_mutations(context):
-        yield Mutant(filename, mutant.line_number, mutant)
+        yield Mutant(filename, mutant)
