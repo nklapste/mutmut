@@ -7,7 +7,6 @@ import os
 import sys
 
 import pytest
-from click.testing import CliRunner
 
 from mutmut.__main__ import main
 from mutmut.file_collection import python_source_files
@@ -64,49 +63,21 @@ def filesystem(tmpdir):
 
 
 @pytest.mark.usefixtures('filesystem')
-def test_simple_apply():
-    result = CliRunner().invoke(main, ['run', '--paths-to-mutate=foo.py'], catch_exceptions=False)
-    CliRunner().invoke(main, ['apply', '1'], catch_exceptions=False)
-    with open('foo.py') as f:
-        assert f.read() != file_to_mutate_contents
+def test_full_run_no_surviving_mutants(capsys):
+    main(['foo.py'])
+    captured = capsys.readouterr()
+    assert "🙁 1" not in captured.out
+    assert "🤔 1" not in captured.out
+    assert "⏰ 1" not in captured.out
 
 
 @pytest.mark.usefixtures('filesystem')
-def test_full_run_no_surviving_mutants():
-    CliRunner().invoke(main, ['run', '--paths-to-mutate=foo.py'], catch_exceptions=False)
-    result = CliRunner().invoke(main, ['results'], catch_exceptions=False)
-    print(repr(result.output))
-    assert u"""
-To apply a mutant on disk:
-    mutmut apply <id>
-
-To show a mutant:
-    mutmut show <id>
-""".strip() == result.output.strip()
-
-
-@pytest.mark.usefixtures('filesystem')
-def test_full_run_one_surviving_mutant():
+def test_full_run_one_surviving_mutant(capsys):
     with open('tests/test_foo.py', 'w') as f:
         f.write(test_file_contents.replace('assert foo(2, 2) is False\n', ''))
-
-    CliRunner().invoke(main, ['run', '--paths-to-mutate=foo.py'], catch_exceptions=False)
-    result = CliRunner().invoke(main, ['results'], catch_exceptions=False)
-    print(repr(result.output))
-    assert u"""
-To apply a mutant on disk:
-    mutmut apply <id>
-
-To show a mutant:
-    mutmut show <id>
-
-
-Survived 🙁 (1)
-
----- foo.py (1) ----
-
-1
-""".strip() == result.output.strip()
+    main(['foo.py'])
+    captured = capsys.readouterr()
+    assert "🙁 1" in captured.out
 
 
 @pytest.mark.parametrize(
