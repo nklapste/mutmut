@@ -20,9 +20,8 @@ from mutmut.cache import print_result_cache, update_line_numbers, \
     get_filename_and_mutation_id_from_pk, hash_of_tests
 from mutmut.file_collection import python_source_files, read_coverage_data, \
     get_or_guess_paths_to_mutate
-from mutmut.mutators import Context, mutate
-from mutmut.runner import run_mutation_tests, Config, do_apply, \
-    time_test_suite, add_mutations_by_file
+from mutmut.mutators import Context, mutate, gen_mutations_for_file
+from mutmut.runner import MutationTestRunner
 
 if sys.version_info < (3, 0):   # pragma: no cover (python 2 specific)
     # noinspection PyCompatibility,PyUnresolvedReferences
@@ -147,7 +146,7 @@ commands:\n
         )
         mutated_source, number_of_mutations_performed = mutate(context)
         if not number_of_mutations_performed:
-            raise ValueError('No mutations performed')
+            raise ValueError('No mutants performed')
 
         for line in unified_diff(source.split('\n'), mutated_source.split('\n'), fromfile=filename, tofile=filename, lineterm=''):
             print(line)
@@ -164,9 +163,6 @@ commands:\n
         print_result_cache()
         return 0
 
-    if command == 'apply':
-        do_apply(argument, dict_synonyms, backup)
-        return 0
 
     if paths_to_mutate is None:
         paths_to_mutate = get_or_guess_paths_to_mutate()
@@ -197,11 +193,12 @@ commands:\n
 
     print(START_MESSAGE)
 
-    baseline_time_elapsed = time_test_suite(
-        swallow_output=not s,
-        test_command=runner,
-        using_testmon=using_testmon
-    )
+    #
+    # baseline_time_elapsed = time_test_suite(
+    #     swallow_output=not s,
+    #     test_command=runner,
+    #     using_testmon=using_testmon
+    # )
 
     if using_testmon:
         copy('.testmondata', '.testmondata-initial')
@@ -228,39 +225,28 @@ commands:\n
                 return True
             return False
 
-    assert command == 'run'
+    # assert command == 'run'
 
-    mutations_by_file = {}
+    mutants = []
 
-    if argument is None:
-        for path in paths_to_mutate:
-            for filename in python_source_files(path, tests_dirs):
-                update_line_numbers(filename)
-                add_mutations_by_file(mutations_by_file, filename, _exclude,
-                                      dict_synonyms)
-    else:
-        filename, mutation_id = \
-            get_filename_and_mutation_id_from_pk(int(argument))
-        mutations_by_file[filename] = [mutation_id]
+    # if argument is None:
+    for path in paths_to_mutate:
+        for filename in python_source_files(path, tests_dirs):
+            update_line_numbers(filename)
+            for mutant in gen_mutations_for_file(filename, _exclude, dict_synonyms):
+                mutants.append(mutant)
+    # else:
+    #     filename, mutation_id = \
+    #         get_filename_and_mutation_id_from_pk(int(argument))
+    #     mutations_by_file[filename] = [mutation_id]
 
-    total = sum(len(mutations) for mutations in mutations_by_file.values())
-
-    print('2. Checking mutants')
-    config = Config(
-        swallow_output=not s,
+    print("generated {} mutants".format(len(mutants)))
+    MutationTestRunner(
+        mutants=mutants,
         test_command=runner,
-        exclude_callback=_exclude,
-        baseline_time_elapsed=baseline_time_elapsed,
-        backup=backup,
-        dict_synonyms=dict_synonyms,
-        total=total,
         using_testmon=using_testmon,
-        cache_only=cache_only,
-        tests_dirs=tests_dirs,
-        hash_of_tests=hash_of_tests(tests_dirs),
-    )
+    ).run_mutation_tests()
 
-    run_mutation_tests(config=config, mutations_by_file=mutations_by_file)
     return 0
 
 
