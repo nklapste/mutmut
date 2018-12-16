@@ -402,13 +402,7 @@ def mutate(context):
     :type context: Context
     :return: tuple: mutated source code, number of mutants performed
     """
-    try:
-        result = parse(context.source, error_recovery=False)
-    except Exception:
-        print(
-            'Failed to parse %s. Internal error from parso follows.' % context.filename)
-        print('----------------------------------')
-        raise
+    result = parse(context.source, error_recovery=False)
     mutate_list_of_nodes(result, context=context)
     mutated_source = result.get_code().replace(' not not ', ' ')
     if context.number_of_performed_mutations:
