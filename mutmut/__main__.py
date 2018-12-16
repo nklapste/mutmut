@@ -58,8 +58,6 @@ def get_argparser():
                             dest="output_capture",
                             help="Turn off output capture of spawned "
                                  "sub-processes.")
-    parser.add_argument("-ca", "--cache-only", action="store_true",
-                            dest="cache_only")  # TODO: help values
     parser.add_argument("-co", "--use-coverage", dest="use_coverage",
                             help="Only mutate code that is covered within the "
                                  "specified `.coverage` file.")
@@ -77,13 +75,6 @@ def main(argv=sys.argv[1:]):
         dict_synonyms = []
     else:
         dict_synonyms = args.dict_synonyms
-
-    # else we have a run command
-    if args.use_coverage and not os.path.exists(args.use_coverage):
-        raise FileNotFoundError(
-            'No valid `.coverage` file found. You must generate a coverage '
-            'file to use this feature.'
-        )
 
     if not args.sources:
         paths_to_mutate = get_or_guess_paths_to_mutate()
@@ -118,6 +109,11 @@ def main(argv=sys.argv[1:]):
         def _exclude(context):
             return False
     else:
+        if not os.path.exists(args.use_coverage):
+            raise FileNotFoundError(
+                'No valid `.coverage` file found. You must generate a coverage '
+                'file to use this feature.'
+            )
         covered_lines_by_filename = {}
         coverage_data = read_coverage_data(args.use_coverage)
 
