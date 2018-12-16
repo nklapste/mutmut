@@ -8,7 +8,6 @@ from __future__ import print_function
 import argparse
 import os
 import sys
-from io import open
 from shutil import copy
 
 from glob2 import glob
