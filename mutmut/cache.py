@@ -15,6 +15,9 @@ from io import open
 from pony.orm import Database, Required, db_session, Set, Optional, select, \
     PrimaryKey, RowNotFound, ERDiagramError, OperationalError
 
+from mutmut.mutators import UNTESTED, OK_KILLED, OK_SUSPICIOUS, BAD_SURVIVED, \
+    BAD_TIMEOUT, MutationID
+
 if sys.version_info < (3, 0):   # pragma: no cover (python 2 specific)
     from itertools import izip_longest as zip_longest  # pylint: disable=no-name-in-module
     # noinspection PyUnresolvedReferences
@@ -154,8 +157,6 @@ def print_result_cache():
                 print()
                 print(', '.join([str(x.id) for x in mutants]))
 
-    from mutmut.mutators import BAD_SURVIVED, BAD_TIMEOUT, OK_KILLED, \
-        OK_SUSPICIOUS, UNTESTED
     # TODO: shouldn't OK_KILLED be also specified?
     print_stuff('Timed out ⏰', select(x for x in Mutant if x.status == BAD_TIMEOUT))
     print_stuff('Suspicious 🤔', select(x for x in Mutant if x.status == OK_SUSPICIOUS))
@@ -249,7 +250,6 @@ def update_mutants(mutations_by_file):
         for mutation_id in mutation_ids:
             line = Line.get(sourcefile=sourcefile, line=mutation_id.line, line_number=mutation_id.line_number)
             assert line is not None
-            from mutmut.mutators import UNTESTED
             get_or_create(Mutant, line=line, index=mutation_id.index, defaults=dict(status=UNTESTED))
 
 
@@ -284,7 +284,6 @@ def get_cached_mutation_status(filename, mutation_id, tests_hash):
     line = Line.get(sourcefile=sourcefile, line=mutation_id.line, line_number=mutation_id.line_number)
     mutant = Mutant.get(line=line, index=mutation_id.index)
 
-    from mutmut.mutators import OK_KILLED, UNTESTED
     if mutant.status == OK_KILLED:
         # We assume that if a mutant was killed, a change to the test
         # suite will mean it's still killed
@@ -308,7 +307,6 @@ def get_mutation_id_from_pk(pk):
     :rtype: MutationID
     """
     mutant = Mutant.get(id=pk)
-    from mutmut.mutators import MutationID
     return MutationID(line=mutant.line.line, index=mutant.index,
                       line_number=mutant.line.line_number)
 
