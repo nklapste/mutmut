@@ -326,28 +326,3 @@ def get_filename_and_mutation_id_from_pk(pk):
     """
     mutant = Mutant.get(id=pk)
     return mutant.line.sourcefile.filename, get_mutation_id_from_pk(pk)
-
-
-@init_db
-@db_session
-def get_cached_test_time():
-    """Get the baseline tests (tests without mutations) execution time
-
-    :return: execution time of the baseline tests
-    :rtype: float or None
-    """
-    d = MiscData.get(key='baseline_time_elapsed')
-    return float(d.value) if d else None
-
-
-@init_db
-@db_session
-def update_cached_test_time(baseline_time_elapsed):
-    """Update/create the baseline tests (tests without mutations) execution
-    time within the database
-
-    :param baseline_time_elapsed: the baseline tests (tests without mutations)
-        execution time
-    :type baseline_time_elapsed: float
-    """
-    get_or_create(MiscData, key='baseline_time_elapsed').value = str(baseline_time_elapsed)

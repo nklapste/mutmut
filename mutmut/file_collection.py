@@ -2,7 +2,7 @@
 # -*- coding: utf-8 -*-
 
 """Functionality for obtaining both source and test files for mutation
-testing and generating a dictionary of valid mutations"""
+testing and generating a dictionary of valid mutants"""
 
 import os
 from os.path import isdir

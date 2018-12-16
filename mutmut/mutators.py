@@ -55,6 +55,34 @@ class MutationID(object):
 ALL = MutationID(line='%all%', index=-1, line_number=-1)
 
 
+class Mutant:
+
+    def __init__(self, source_file, line_number, mutation, status=UNTESTED):
+        self.source_file = source_file
+        self.line_number = line_number
+        self.mutation = mutation
+        self.status = status
+
+    @property
+    def context(self):
+        return Context(
+            mutation_id=self.mutation,
+            filename=self.source_file,
+            dict_synonyms=["dict"],  # TODO:
+        )
+
+    def apply(self, backup=True):
+        """Apply the mutation, modify the source file and create a backup"""
+        context = self.context
+        mutate_file(
+            backup=backup,
+            context=context,
+        )
+        if context.number_of_performed_mutations == 0:
+            raise ValueError('ERROR: no mutants performed. '
+                             'Are you sure the index is not too big?')
+
+
 def number_mutation(value, **_):
     suffix = ''
     if value.upper().endswith('L'):  # pragma: no cover (python 2 specific)
@@ -361,7 +389,7 @@ class Context(object):
 def mutate(context):
     """
     :type context: Context
-    :return: tuple: mutated source code, number of mutations performed
+    :return: tuple: mutated source code, number of mutants performed
     """
     try:
         result = parse(context.source, error_recovery=False)
@@ -488,3 +516,27 @@ def mutate_file(backup, context):
     with open(context.filename, 'w') as f:
         f.write(result)
     return number_of_mutations_performed
+
+
+def gen_mutations_for_file(filename, exclude, dict_synonyms):
+    """
+
+    :param mutations_by_file:
+    :type mutations_by_file: dict[str, list[MutationID]]
+
+    :param filename: the file to create mutants in
+    :type filename: str
+
+    :param dict_synonyms:
+    :type: TODO
+
+    :param exclude:
+    """
+    context = Context(
+        source=open(filename).read(),
+        filename=filename,
+        exclude=exclude,
+        dict_synonyms=dict_synonyms,
+    )
+    for mutant in list_mutations(context):
+        yield Mutant(filename, mutant.line_number, mutant)
