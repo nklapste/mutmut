@@ -7,8 +7,7 @@ import sys
 
 import pytest
 
-from mutmut.mutators import Context, mutate, ALL, MutationID, count_mutations, \
-    list_mutations
+from mutmut.mutators import Context, mutate, ALL, MutationID, list_mutations
 
 
 @pytest.mark.parametrize(
@@ -128,10 +127,6 @@ def test_mutate_both():
     assert len(mutations) == 2
     assert mutate(Context(source=source, mutation_id=mutations[0])) == ('a = b - c', 1)
     assert mutate(Context(source=source, mutation_id=mutations[1])) == ('a = None', 1)
-
-
-def test_count_available_mutations():
-    assert count_mutations(Context(source='def foo():\n    return 1+1')) == 3
 
 
 def test_perform_one_indexed_mutation():

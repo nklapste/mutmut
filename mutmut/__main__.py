@@ -12,7 +12,6 @@ from shutil import copy
 
 from glob2 import glob
 
-from mutmut.cache import update_line_numbers, print_result_cache, get_filename_and_mutation_id_from_pk
 from mutmut.file_collection import python_source_files, read_coverage_data, \
     get_or_guess_paths_to_mutate
 from mutmut.mutators import gen_mutations_for_file
@@ -44,60 +43,26 @@ def get_argparser():
     )
     parser.add_argument("--dict-synonyms", required=False, nargs="*")  # TODO: help values
     parser.add_argument("-b", "--backup", action="store_true", dest="backup")  # TODO: help values
-    subparsers = parser.add_subparsers(dest="command", help='commands')
-
-    run_parser = subparsers.add_parser(
-        'run',
-        description="Run mutation testing.",
-        help='Run mutation testing. '
-             'Note: This should be executed before running either the '
-             '`results` or `apply` commands.',
-        formatter_class=argparse.ArgumentDefaultsHelpFormatter
-    )
-    run_parser.set_defaults(command="run")
-    run_parser.add_argument("-m", "--mutant-id", dest="mutant_id",
-                            default="all",
-                            help='Id of the mutant to run, if not '
-                                 'specified all mutants will be run.')
-    run_parser.add_argument("-s", "--sources", nargs="*",
+    parser.add_argument("-s", "--sources", nargs="*",
                             help="Path to the source package(s)/file(s) to "
                                  "mutate test. If no path is specified it will"
                                  "be guessed.")
-    run_parser.add_argument("-t", "--tests", dest="tests_dir", default="tests",
+    parser.add_argument("-t", "--tests", dest="tests_dir", default="tests",
                             nargs="*",
                             help="Path to the testing file(s) to challenge "
                                  "mutations with.")
-    run_parser.add_argument("-r", "--runner", default='python -m pytest -x',
+    parser.add_argument("-r", "--runner", default='python -m pytest -x',
                         help="Python test runner (and its arguments) to "
                              "invoke each mutation test run.")
-    run_parser.add_argument("-q", "--quiet-stdout", action="store_true",
+    parser.add_argument("-q", "--quiet-stdout", action="store_true",
                             dest="output_capture",
                             help="Turn off output capture of spawned "
                                  "sub-processes.")
-    run_parser.add_argument("-ca", "--cache-only", action="store_true",
+    parser.add_argument("-ca", "--cache-only", action="store_true",
                             dest="cache_only")  # TODO: help values
-    run_parser.add_argument("-co", "--use-coverage", dest="use_coverage",
+    parser.add_argument("-co", "--use-coverage", dest="use_coverage",
                             help="Only mutate code that is covered within the "
                                  "specified `.coverage` file.")
-
-    results_parser = subparsers.add_parser(
-        'results',
-        help='Print the results of mutation testing.',
-        description='Print the results of mutation testing.',
-        formatter_class=argparse.ArgumentDefaultsHelpFormatter
-    )
-    results_parser.set_defaults(command="results")
-
-    apply_parser = subparsers.add_parser(
-        'apply',
-        help='Apply a mutant onto the source code.',
-        description='Apply a mutant onto the source code.',
-        formatter_class=argparse.ArgumentDefaultsHelpFormatter
-    )
-    apply_parser.set_defaults(command="apply")
-    apply_parser.add_argument('mutant_id', type=int,
-                              help='Id of the mutant to apply to the source '
-                                   'code.')
 
     return parser
 
@@ -112,15 +77,6 @@ def main(argv=sys.argv[1:]):
         dict_synonyms = []
     else:
         dict_synonyms = args.dict_synonyms
-
-    if args.command == 'results':
-        print_result_cache()
-        return 0
-
-    if args.command == 'apply':
-        # TODO: re-implement
-        # do_apply(args.mutant_id, dict_synonyms, args.backup)
-        return 0
 
     # else we have a run command
     if args.use_coverage and not os.path.exists(args.use_coverage):
@@ -182,17 +138,10 @@ def main(argv=sys.argv[1:]):
 
     mutants = []
 
-    # if argument is None:
     for path in paths_to_mutate:
         for filename in python_source_files(path, tests_dirs):
-            update_line_numbers(filename)
             for mutant in gen_mutations_for_file(filename, _exclude, dict_synonyms):
                 mutants.append(mutant)
-    # TODO: re-implement
-    # else:
-    #     filename, mutation_id = \
-    #         get_filename_and_mutation_id_from_pk(int(argument))
-    #     mutations_by_file[filename] = [mutation_id]
 
     print("generated {} mutants".format(len(mutants)))
     MutationTestRunner(

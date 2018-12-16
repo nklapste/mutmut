@@ -498,15 +498,6 @@ def mutate_list_of_nodes(node, context):
             return
 
 
-def count_mutations(context):
-    """
-    :type context: Context
-    """
-    assert context.mutation_id == ALL
-    mutate(context)
-    return context.number_of_performed_mutations
-
-
 def list_mutations(context):
     """
     :type context: Context
