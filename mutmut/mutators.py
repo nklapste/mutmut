@@ -360,11 +360,12 @@ class Context(object):
             if word in DUNDER_WHITELIST and rest.strip()[0] == '=':
                 return True
 
-        if current_line.strip() == "__import__('pkg_resources').declare_namespace(__name__)":
+        if current_line.strip() == \
+                "__import__('pkg_resources').declare_namespace(__name__)":
             return True
 
-        return self.current_line_index in self.pragma_no_mutate_lines or self.exclude(
-            context=self)
+        return self.current_line_index in self.pragma_no_mutate_lines or \
+               self.exclude(context=self)
 
     @property
     def source_by_line_number(self):
