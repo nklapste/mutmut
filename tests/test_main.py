@@ -49,8 +49,8 @@ def filesystem(tmpdir):
     foo = tmpdir.mkdir("test_fs").join("foo.py")
     foo.write(file_to_mutate_contents)
 
-    test_foo = tmpdir.mkdir(os.path.join("test_fs", "tests")).join(
-        "test_foo.py")
+    test_foo = \
+        tmpdir.mkdir(os.path.join("test_fs", "tests")).join("test_foo.py")
     test_foo.write(test_file_contents)
 
     os.chdir(str(tmpdir.join('test_fs')))
@@ -63,8 +63,22 @@ def filesystem(tmpdir):
 
 
 @pytest.mark.usefixtures('filesystem')
+def test_simple_apply():
+    assert 0 == main(["run", "-s", 'foo.py'])
+    main(["apply", "1"])
+    with open('foo.py') as f:
+        assert f.read() != file_to_mutate_contents
+
+
+@pytest.mark.usefixtures('filesystem')
+def test_missing_sources():
+    with pytest.raises(FileNotFoundError):
+        main(["run", "-s", 'nonsuch.py'])
+
+
+@pytest.mark.usefixtures('filesystem')
 def test_full_run_no_surviving_mutants(capsys):
-    main(['foo.py'])
+    assert 0 == main(["run", "-s", 'foo.py'])
     captured = capsys.readouterr()
     assert "🙁 1" not in captured.out
     assert "🤔 1" not in captured.out
@@ -75,7 +89,7 @@ def test_full_run_no_surviving_mutants(capsys):
 def test_full_run_one_surviving_mutant(capsys):
     with open('tests/test_foo.py', 'w') as f:
         f.write(test_file_contents.replace('assert foo(2, 2) is False\n', ''))
-    main(['foo.py'])
+    main(["run", "-s", 'foo.py'])
     captured = capsys.readouterr()
     assert "🙁 1" in captured.out
 

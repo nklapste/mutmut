@@ -13,11 +13,12 @@ from shutil import copy
 
 from glob2 import glob
 
-from mutmut.cache import update_line_numbers, hash_of_tests
+from mutmut.cache import update_line_numbers, hash_of_tests, \
+    print_result_cache, get_filename_and_mutation_id_from_pk
 from mutmut.file_collection import python_source_files, read_coverage_data, \
     get_or_guess_paths_to_mutate
-from mutmut.runner import run_mutation_tests, Config,  time_test_suite, \
-    add_mutations_by_file
+from mutmut.runner import run_mutation_tests, Config, time_test_suite, \
+    add_mutations_by_file, do_apply
 
 if sys.version_info < (3, 0):   # pragma: no cover (python 2 specific)
     # noinspection PyCompatibility,PyUnresolvedReferences
@@ -63,33 +64,66 @@ def get_argparser():
     :rtype: argparse.ArgumentParser
     """
     parser = argparse.ArgumentParser(
-        formatter_class=argparse.ArgumentDefaultsHelpFormatter)
-    parser.add_argument("file_or_dir", nargs="+",
-                        help="path to the source package(s)/file(s) to "
-                             "mutate test")
-    parser.add_argument("--use-coverage", dest="use_coverage",
-                        help="only mutate code that is covered by tests note "
-                             "this requires a ``.coverage`` file path to be "
-                             "given")
-    parser.add_argument("--runner", default='python -m pytest -x',
-                        help="The python test runner (and its arguments) to "
-                             "invoke each mutation test run ")
-    parser.add_argument("--dict-synonyms", required=False, nargs="+",
-                        default="")  # TODO: help values
+        prog="mutmut",
+        description="Simple mutation testing for python.",
+        formatter_class=argparse.ArgumentDefaultsHelpFormatter
+    )
+    parser.add_argument("--dict-synonyms", required=False, nargs="*")  # TODO: help values
+    parser.add_argument("-b", "--backup", action="store_true", dest="backup")  # TODO: help values
+    subparsers = parser.add_subparsers(dest="command", help='commands')
 
-    parser.add_argument("--tests", dest="tests_dir", default="tests",
-                        help="path to the testing files to challenge with"
-                             "mutations")
-    parser.add_argument("-q", "--quiet-stdout", action="store_true",
-                        dest="output_capture",
-                        help="turn off output capture of sub-processes")
+    run_parser = subparsers.add_parser(
+        'run',
+        description="Run mutation testing.",
+        help='Run mutation testing. '
+             'Note: This should be executed before running either the '
+             '`results` or `apply` commands.',
+        formatter_class=argparse.ArgumentDefaultsHelpFormatter
+    )
+    run_parser.set_defaults(command="run")
+    run_parser.add_argument("-m", "--mutant-id", dest="mutant_id",
+                            default="all",
+                            help='Id of the mutant to run, if not '
+                                 'specified all mutants will be run.')
+    run_parser.add_argument("-s", "--sources", nargs="*",
+                            help="Path to the source package(s)/file(s) to "
+                                 "mutate test. If no path is specified it will"
+                                 "be guessed.")
+    run_parser.add_argument("-t", "--tests", dest="tests_dir", default="tests",
+                            help="Path to the testing file(s) to challenge "
+                                 "mutations with.")
+    run_parser.add_argument("-r", "--runner", default='python -m pytest -x',
+                        help="Python test runner (and its arguments) to "
+                             "invoke each mutation test run.")
+    run_parser.add_argument("-q", "--quiet-stdout", action="store_true",
+                            dest="output_capture",
+                            help="Turn off output capture of spawned "
+                                 "sub-processes.")
+    run_parser.add_argument("-ca", "--cache-only", action="store_true",
+                            dest="cache_only")  # TODO: help values
+    run_parser.add_argument("-co", "--use-coverage", dest="use_coverage",
+                            help="Only mutate code that is covered within the "
+                                 "specified `.coverage` file.")
 
-    parser.add_argument("--backup", action="store_true",
-                        dest="backup")  # TODO: help values
+    results_parser = subparsers.add_parser(
+        'results',
+        help='Print the results of mutation testing.',
+        description='Print the results of mutation testing.',
+        formatter_class=argparse.ArgumentDefaultsHelpFormatter
+    )
+    results_parser.set_defaults(command="results")
 
-    parser.add_argument("--cache-only", action="store_true",
-                        dest="cache_only")  # TODO: help values
-    # TODO: add ability to select on mutant again
+    apply_parser = subparsers.add_parser(
+        'apply',
+        help='Apply a mutant onto the source code.',
+        description='Apply a mutant onto the source code.',
+        formatter_class=argparse.ArgumentDefaultsHelpFormatter
+    )
+    apply_parser.set_defaults(command="apply")
+    apply_parser.add_argument('mutant_id', type=int,
+                              help='Id of the mutant to apply to the source '
+                                   'code.')
+
     return parser
 
 
@@ -99,30 +133,33 @@ def main(argv=sys.argv[1:]):
     parser = get_argparser()
     args = parser.parse_args(argv)
 
-    dict_synonyms = [x.strip() for x in args.dict_synonyms.split(',')]
+    if args.dict_synonyms is None:
+        dict_synonyms = []
+    else:
+        dict_synonyms = args.dict_synonyms
 
-    if args.use_coverage and not os.path.exists('.coverage'):
+    if args.command == 'results':
+        print_result_cache()
+        return 0
+
+    if args.command == 'apply':
+        if args.mutant_id == "all":
+            raise ValueError("cannot apply all mutants,"
+                             " please specifiy only one")  # TODO: better error
+        do_apply(args.mutant_id, dict_synonyms, args.backup)
+        return 0
+
+    # else we have a run command
+    if args.use_coverage and not os.path.exists(args.use_coverage):
         raise FileNotFoundError(
             'No .coverage file found. You must generate a coverage '
             'file to use this feature.'
         )
 
-    # TODO: add back
-    # if command == 'results':
-    #     print_result_cache()
-    #     return 0
-    #
-    # if command == 'apply':
-    #     do_apply(argument, dict_synonyms, args.backup)
-    #     return 0
-
-    if args.file_or_dir is None:
+    if not args.sources:
         paths_to_mutate = get_or_guess_paths_to_mutate()
     else:
-        paths_to_mutate = args.file_or_dir
-
-    if not isinstance(paths_to_mutate, (list, tuple)):
-        paths_to_mutate = [path.strip() for path in paths_to_mutate.split(',')]
+        paths_to_mutate = args.sources
 
     if not paths_to_mutate:
         raise FileNotFoundError(
@@ -160,7 +197,7 @@ def main(argv=sys.argv[1:]):
             return False
     else:
         covered_lines_by_filename = {}
-        coverage_data = read_coverage_data()
+        coverage_data = read_coverage_data(args.use_coverage)
 
         def _exclude(context):
             try:
@@ -178,19 +215,16 @@ def main(argv=sys.argv[1:]):
             return False
 
     mutations_by_file = {}
-    # TODO: ADD BACK
-    # if argument is None:
-    for path in paths_to_mutate:
-        for filename in python_source_files(path, tests_dirs):
-            update_line_numbers(filename)
-            add_mutations_by_file(mutations_by_file, filename, _exclude,
-                                  dict_synonyms)
-    # TODO: ADD BACK
-
-    # else:
-    #     filename, mutation_id = \
-    #         get_filename_and_mutation_id_from_pk(int(argument))
-    #     mutations_by_file[filename] = [mutation_id]
+    if args.mutant_id == "all":
+        for path in paths_to_mutate:
+            for filename in python_source_files(path, tests_dirs):
+                update_line_numbers(filename)
+                add_mutations_by_file(mutations_by_file, filename, _exclude,
+                                      dict_synonyms)
+    else:
+        filename, mutation_id = \
+            get_filename_and_mutation_id_from_pk(int(args.mutant_id))
+        mutations_by_file[filename] = [mutation_id]
 
     total = sum(len(mutations) for mutations in mutations_by_file.values())
 

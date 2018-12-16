@@ -7,6 +7,7 @@ testing and generating a dictionary of valid mutations"""
 import os
 from os.path import isdir
 
+from setuptools import find_packages
 
 def python_source_files(path, tests_dirs):
     """Yield the paths to all python source files
@@ -55,15 +56,17 @@ def get_or_guess_paths_to_mutate():
         )
 
 
-def read_coverage_data():
+def read_coverage_data(path):
     """Read a coverage report a ``.coverage`` and return its coverage data.
+
+    :param path: Path to a ``.coverage`` file
+    :type path: str`
 
     :return: CoverageData from the given coverage file path
     :rtype: CoverageData
     """
-    print('Using coverage data from .coverage file')
     # noinspection PyPackageRequirements,PyUnresolvedReferences
     import coverage
     coverage_data = coverage.CoverageData()
-    coverage_data.read_file('.coverage')
+    coverage_data.read_file(path)
     return coverage_data
