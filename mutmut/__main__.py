@@ -70,11 +70,6 @@ def main(argv=sys.argv[1:]):
     parser = get_argparser()
     args = parser.parse_args(argv)
 
-    if args.dict_synonyms is None:
-        dict_synonyms = []
-    else:
-        dict_synonyms = args.dict_synonyms
-
     if not args.sources:
         paths_to_mutate = get_or_guess_paths_to_mutate()
     else:
