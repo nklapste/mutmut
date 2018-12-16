@@ -524,9 +524,6 @@ def mutate_file(backup, context):
 def gen_mutations_for_file(filename, exclude):
     """
 
-    :param mutations_by_file:
-    :type mutations_by_file: dict[str, list[MutationID]]
-
     :param filename: the file to create mutants in
     :type filename: str
 
