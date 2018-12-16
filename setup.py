@@ -113,7 +113,6 @@ setup(
     install_requires=[
         "glob2",
         "parso",
-        "pony",
         "tri.declarative",
     ],
     tests_require=[
