@@ -130,7 +130,7 @@ def main(argv=sys.argv[1:]):
 
     for path in paths_to_mutate:
         for filename in python_source_files(path, tests_dirs):
-            for mutant in gen_mutations_for_file(filename, _exclude, dict_synonyms):
+            for mutant in gen_mutations_for_file(filename, _exclude):
                 mutants.append(mutant)
 
     print("generated {} mutants".format(len(mutants)))
