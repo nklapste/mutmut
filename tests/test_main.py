@@ -57,41 +57,30 @@ def filesystem(tmpdir):
     yield
     os.chdir('..')
     # This is a hack to get pony to forget about the old db file
-    import mutmut.cache
-    mutmut.cache.DB.provider = None
-    mutmut.cache.DB.schema = None
-
-
-@pytest.mark.usefixtures('filesystem')
-def test_simple_apply():
-    assert 0 == main(["run", "-s", 'foo.py'])
-    main(["apply", "1"])
-    with open('foo.py') as f:
-        assert f.read() != file_to_mutate_contents
 
 
 @pytest.mark.usefixtures('filesystem')
 def test_missing_sources():
     with pytest.raises(FileNotFoundError):
-        main(["run", "-s", 'nonsuch.py'])
+        main(["-s", 'nonsuch.py'])
 
 
 @pytest.mark.usefixtures('filesystem')
 def test_full_run_no_surviving_mutants(capsys):
-    assert 0 == main(["run", "-s", 'foo.py'])
+    assert 0 == main(["-s", 'foo.py'])
     captured = capsys.readouterr()
-    assert "🙁 1" not in captured.out
-    assert "🤔 1" not in captured.out
-    assert "⏰ 1" not in captured.out
+    assert "BAD_SURVIVED" not in captured.out
+    assert "BAD_TIMEOUT" not in captured.out
+    assert "OK_SUSPICIOUS" not in captured.out
 
 
 @pytest.mark.usefixtures('filesystem')
 def test_full_run_one_surviving_mutant(capsys):
     with open('tests/test_foo.py', 'w') as f:
         f.write(test_file_contents.replace('assert foo(2, 2) is False\n', ''))
-    main(["run", "-s", 'foo.py'])
+    main(["-s", 'foo.py'])
     captured = capsys.readouterr()
-    assert "🙁 1" in captured.out
+    assert "BAD_SURVIVED" in captured.out
 
 
 @pytest.mark.parametrize(
