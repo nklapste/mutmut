@@ -12,11 +12,10 @@ from shutil import copy
 
 from glob2 import glob
 
-from mutmut.cache import update_line_numbers, hash_of_tests, \
-    print_result_cache, get_filename_and_mutation_id_from_pk
+from mutmut.cache import update_line_numbers, print_result_cache, get_filename_and_mutation_id_from_pk
 from mutmut.file_collection import python_source_files, read_coverage_data, \
     get_or_guess_paths_to_mutate
-from mutmut.mutators import Context, mutate, gen_mutations_for_file
+from mutmut.mutators import gen_mutations_for_file
 from mutmut.runner import MutationTestRunner
 
 if sys.version_info < (3, 0):   # pragma: no cover (python 2 specific)
@@ -30,25 +29,6 @@ if sys.version_info < (3, 0):   # pragma: no cover (python 2 specific)
 else:
     # noinspection PyUnresolvedReferences,PyCompatibility
     from configparser import ConfigParser, NoOptionError, NoSectionError
-
-START_MESSAGE = """
-- Mutation testing starting - 
-
-These are the steps:
-1. A full test suite run will be made to make sure we 
-   can run the tests successfully and we know how long 
-   it takes (to detect infinite loops for example)
-2. Mutants will be generated and checked
-
-Mutants are written to the cache in the .mutmut-cache 
-directory. Print found mutants with `mutmut results`.
-
-Legend for output:
-🎉 Killed mutants. The goal is for everything to end up in this bucket. 
-⏰ Timeout. Test suite took 10 times as long as the baseline so were killed.  
-🤔 Suspicious. Tests took a long time, but not long enough to be fatal. 
-🙁 Survived. This means your tests needs to be expanded. 
-"""
 
 
 def get_argparser():
@@ -84,6 +64,7 @@ def get_argparser():
                                  "mutate test. If no path is specified it will"
                                  "be guessed.")
     run_parser.add_argument("-t", "--tests", dest="tests_dir", default="tests",
+                            nargs="*",
                             help="Path to the testing file(s) to challenge "
                                  "mutations with.")
     run_parser.add_argument("-r", "--runner", default='python -m pytest -x',
@@ -137,16 +118,14 @@ def main(argv=sys.argv[1:]):
         return 0
 
     if args.command == 'apply':
-        if args.mutant_id == "all":
-            raise ValueError("cannot apply all mutants,"
-                             " please specifiy only one")  # TODO: better error
-        do_apply(args.mutant_id, dict_synonyms, args.backup)
+        # TODO: re-implement
+        # do_apply(args.mutant_id, dict_synonyms, args.backup)
         return 0
 
     # else we have a run command
     if args.use_coverage and not os.path.exists(args.use_coverage):
         raise FileNotFoundError(
-            'No .coverage file found. You must generate a coverage '
+            'No valid `.coverage` file found. You must generate a coverage '
             'file to use this feature.'
         )
 
@@ -156,18 +135,16 @@ def main(argv=sys.argv[1:]):
         paths_to_mutate = args.sources
 
     if not paths_to_mutate:
-        raise FileNotFoundError(
-            'You must specify a list of paths to mutate. '
-            'Either as a command line argument, or by setting paths_to_mutate '
-            'under the section [mutmut] in setup.cfg'
-        )
+        raise FileNotFoundError('You must specify a list of paths to mutate. '
+                                'Either as a command line argument, or by '
+                                'setting paths_to_mutate under the section')
 
     tests_dirs = []
-    for p in args.tests_dir.split(':'):
+    for p in args.tests_dir:
         tests_dirs.extend(glob(p, recursive=True))
 
     for p in paths_to_mutate:
-        for pt in args.tests_dir.split(':'):
+        for pt in args.tests_dir:
             tests_dirs.extend(glob(p + '/**/' + pt, recursive=True))
 
     # stop python from creating .pyc files
@@ -175,14 +152,8 @@ def main(argv=sys.argv[1:]):
 
     using_testmon = '--testmon' in args.runner
 
-    print(START_MESSAGE)
-
-    #
-    # baseline_time_elapsed = time_test_suite(
-    #     swallow_output=not s,
-    #     test_command=runner,
-    #     using_testmon=using_testmon
-    # )
+    print("{:=^79}".format(" Starting Mutation Tests "))
+    print("Using test runner: {}".format(args.runner))
 
     if using_testmon:
         copy('.testmondata', '.testmondata-initial')
@@ -209,8 +180,6 @@ def main(argv=sys.argv[1:]):
                 return True
             return False
 
-    # assert command == 'run'
-
     mutants = []
 
     # if argument is None:
@@ -219,6 +188,7 @@ def main(argv=sys.argv[1:]):
             update_line_numbers(filename)
             for mutant in gen_mutations_for_file(filename, _exclude, dict_synonyms):
                 mutants.append(mutant)
+    # TODO: re-implement
     # else:
     #     filename, mutation_id = \
     #         get_filename_and_mutation_id_from_pk(int(argument))
@@ -227,7 +197,7 @@ def main(argv=sys.argv[1:]):
     print("generated {} mutants".format(len(mutants)))
     MutationTestRunner(
         mutants=mutants,
-        test_command=runner,
+        test_command=args.runner,
         using_testmon=using_testmon,
     ).run_mutation_tests()
 

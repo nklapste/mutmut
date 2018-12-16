@@ -64,7 +64,10 @@ class Mutant:
 
     @property
     def context(self):
+        with open(self.source_file) as f:
+            source = f.read()
         return Context(
+            source=source,
             mutation_id=self.mutation,
             filename=self.source_file,
             dict_synonyms=["dict"],  # TODO:
@@ -72,23 +75,19 @@ class Mutant:
 
     @property
     def mutation_original_pair(self):
-        with open(self.source_file) as f:
-            source = f.read()
-        context = Context(
-            source=source,
-            filename=self.source_file,
-            mutation_id=self.mutation,
-        )
-        mutated_source, number_of_mutations_performed = mutate(context)
+        mutated_source, number_of_mutations_performed = mutate(self.context)
         mutant = set(mutated_source.splitlines(keepends=True))
-        normie = set(source.splitlines(keepends=True))
+        normie = set(self.context.source.splitlines(keepends=True))
         mutation = list(mutant - normie)
         original = list(normie - mutant)
         # TODO: better generation
+        if number_of_mutations_performed == 0:
+            return None, None
         return original[0].strip(), mutation[0].strip()
 
     def apply(self, backup=True):
-        """Apply the mutation, modify the source file and create a backup"""
+        """Apply the mutation to the existing source file also create
+        a backup"""
         context = self.context
         mutate_file(
             backup=backup,
@@ -339,7 +338,7 @@ mutations_by_type = {
 
 class Context(object):
     def __init__(self, source=None, mutation_id=ALL, dict_synonyms=None,
-                 filename=None, exclude=lambda context: False, config=None):
+                 filename=None, exclude=lambda context: False):
         self.index = 0
         self.source = source
         self.mutation_id = mutation_id
@@ -353,8 +352,6 @@ class Context(object):
         self.dict_synonyms = (dict_synonyms or []) + ['dict']
         self._source_by_line_number = None
         self._pragma_no_mutate_lines = None
-        self._path_by_line = None
-        self.config = config
 
     def exclude_line(self):
         current_line = self.source_by_line_number[self.current_line_index]

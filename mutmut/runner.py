@@ -10,7 +10,8 @@ import time
 from shutil import move, copy
 from threading import Timer
 
-from mutmut.mutators import Mutant, BAD_TIMEOUT, OK_SUSPICIOUS, BAD_SURVIVED, OK_KILLED, UNTESTED
+from mutmut.mutators import Mutant, UNTESTED, OK_KILLED, OK_SUSPICIOUS, \
+    BAD_SURVIVED, BAD_TIMEOUT
 
 
 if sys.version_info < (3, 0):   # pragma: no cover (python 2 specific)
@@ -83,15 +84,16 @@ def popen_streaming_output(cmd, callback, timeout=None):
 class MutationTestRunner:
 
     def __init__(self, mutants, test_command, swallow_output=True,
-                 using_testmon=False):
-        self.baseline_time_elapsed = 0
+                 using_testmon=False, baseline_test_time=None):
         self.mutants = mutants
         self.test_command = test_command
         self.swallow_output = swallow_output
         self.using_testmon = using_testmon
+        self.baseline_test_time = baseline_test_time
 
     def run_mutation_tests(self):
-        self._time_test_suite()
+        if self.baseline_test_time is None:
+            self._time_test_suite()
         for mutant in self.mutants:
             original, mutation = mutant.mutation_original_pair
             print("{}['{}'->'{}'] ".format(mutant.source_file, original, mutation), end='')
@@ -111,11 +113,11 @@ class MutationTestRunner:
             mutant.apply()
             start = time.time()
             try:
-                survived = self.run_test(timeout=self.baseline_time_elapsed * 10)
+                survived = self.run_test(timeout=self.baseline_test_time * 10)
             except TimeoutError:
                 mutant.status = BAD_TIMEOUT
             else:
-                if time.time() - start > self.baseline_time_elapsed * 2:
+                if time.time() - start > self.baseline_test_time * 2:
                     mutant.status = OK_SUSPICIOUS
                 elif survived:
                     mutant.status = BAD_SURVIVED
@@ -128,8 +130,8 @@ class MutationTestRunner:
         start_time = time.time()
         green_suite = self.run_test()
         if green_suite:
-            self.baseline_time_elapsed = time.time() - start_time
-            print("Ran unmutated test suite in {} seconds".format(self.baseline_time_elapsed))
+            self.baseline_test_time = time.time() - start_time
+            print("Ran unmutated test suite in {} seconds".format(self.baseline_test_time))
         else:
             raise RuntimeError("Mutation tests require a green suite")
 
