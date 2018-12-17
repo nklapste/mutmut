@@ -20,11 +20,6 @@ from mutmut.runner import MutationTestRunner
 if sys.version_info < (3, 0):   # pragma: no cover (python 2 specific)
     # noinspection PyCompatibility,PyUnresolvedReferences
     from ConfigParser import ConfigParser, NoOptionError, NoSectionError  # pylint: disable=import-error
-    # This little hack is needed to get the click tester working on python 2.7
-    orig_print = print
-
-    def print(x='', **kwargs):
-        orig_print(x.encode('utf8'), **kwargs)
 else:
     # noinspection PyUnresolvedReferences,PyCompatibility
     from configparser import ConfigParser, NoOptionError, NoSectionError
