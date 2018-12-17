@@ -59,7 +59,10 @@ def get_argparser():
 
 
 def main(argv=sys.argv[1:]):
-    """main entrypoint for mutmut"""
+    """main entrypoint for mutmut
+
+    :rtype: int
+    """
 
     parser = get_argparser()
     args = parser.parse_args(argv)
