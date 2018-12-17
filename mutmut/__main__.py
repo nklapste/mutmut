@@ -35,9 +35,7 @@ def get_argparser():
         description="Simple mutation testing for python.",
         formatter_class=argparse.ArgumentDefaultsHelpFormatter
     )
-    parser.add_argument("-b", "--backup", action="store_true",
-                        dest="backup",
-                        help="Create a backup of source files before mutations")  # TODO: help values
+
     parser.add_argument("file_or_dir", nargs="+",
                         help="Path to the source package(s)/file(s) to "
                              "mutate test. If no path is specified it will"
