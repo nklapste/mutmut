@@ -68,10 +68,10 @@ def test_missing_sources():
 @pytest.mark.usefixtures('filesystem')
 def test_full_run_no_surviving_mutants(capsys):
     assert 0 == main(["-s", 'foo.py'])
-    captured = capsys.readouterr()
-    assert "BAD_SURVIVED" not in captured.out
-    assert "BAD_TIMEOUT" not in captured.out
-    assert "OK_SUSPICIOUS" not in captured.out
+    out, err = capsys.readouterr()
+    assert "BAD_SURVIVED" not in out
+    assert "BAD_TIMEOUT" not in out
+    assert "OK_SUSPICIOUS" not in out
 
 
 @pytest.mark.usefixtures('filesystem')
@@ -79,8 +79,8 @@ def test_full_run_one_surviving_mutant(capsys):
     with open('tests/test_foo.py', 'w') as f:
         f.write(test_file_contents.replace('assert foo(2, 2) is False\n', ''))
     main(["-s", 'foo.py'])
-    captured = capsys.readouterr()
-    assert "BAD_SURVIVED" in captured.out
+    out, err = capsys.readouterr()
+    assert "BAD_SURVIVED" in out
 
 
 @pytest.mark.parametrize(
