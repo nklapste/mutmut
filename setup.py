@@ -115,7 +115,7 @@ setup(
         "parso",
     ],
     tests_require=[
-        "pytest>=3.3.0",
+        "pytest>=2.8.7",
         "pytest-cov",
         "pylint>=1.9.1,<2.0.0",
     ],
