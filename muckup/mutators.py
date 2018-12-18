@@ -4,6 +4,7 @@
 """Mutation testing definitions and helpers"""
 
 import sys
+from enum import Enum
 
 from parso import parse
 from parso.python.tree import Name
@@ -29,11 +30,14 @@ DUNDER_WHITELIST = [
     'copyright',
 ]
 
-UNTESTED = 'UNTESTED'
-OK_KILLED = 'OK_KILLED'
-OK_SUSPICIOUS = 'OK_SUSPICIOUS'
-BAD_TIMEOUT = 'BAD_TIMEOUT'
-BAD_SURVIVED = 'BAD_SURVIVED'
+
+class Status(Enum):
+    """Statues a :class:`.Mutant` can have"""
+    UNTESTED = 'UNTESTED'
+    OK_KILLED = 'OK_KILLED'
+    OK_SUSPICIOUS = 'OK_SUSPICIOUS'
+    BAD_TIMEOUT = 'BAD_TIMEOUT'
+    BAD_SURVIVED = 'BAD_SURVIVED'
 
 
 class MutationID(object):
@@ -52,7 +56,7 @@ ALL = MutationID(line='%all%', index=-1, line_number=-1)
 
 class Mutant:
 
-    def __init__(self, source_file, mutation, status=UNTESTED):
+    def __init__(self, source_file, mutation, status=Status.UNTESTED):
         self.source_file = source_file
         self.mutation = mutation
         self.status = status

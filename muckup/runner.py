@@ -12,8 +12,7 @@ import time
 from shutil import move, copy
 from threading import Timer
 
-from muckup.mutators import Mutant, UNTESTED, OK_KILLED, OK_SUSPICIOUS, \
-    BAD_SURVIVED, BAD_TIMEOUT
+from muckup.mutators import Mutant, Status
 
 if sys.version_info < (3, 0):   # pragma: no cover (python 2 specific)
     class TimeoutError(OSError):
@@ -123,7 +122,7 @@ class MutationTestRunner:
         :param mutant: The mutant to test.
         :type mutant: Mutant
         """
-        if mutant.status != UNTESTED:
+        if mutant.status != Status.UNTESTED:
             return
         try:
             mutant.apply()
@@ -131,14 +130,14 @@ class MutationTestRunner:
             try:
                 survived = self.run_test(timeout=self.baseline_test_time * 10)
             except TimeoutError:
-                mutant.status = BAD_TIMEOUT
+                mutant.status = Status.BAD_TIMEOUT
             else:
                 if time.time() - start > self.baseline_test_time * 2:
-                    mutant.status = OK_SUSPICIOUS
+                    mutant.status = Status.OK_SUSPICIOUS
                 elif survived:
-                    mutant.status = BAD_SURVIVED
+                    mutant.status = Status.BAD_SURVIVED
                 else:
-                    mutant.status = OK_KILLED
+                    mutant.status = Status.OK_KILLED
         finally:
             move(mutant.source_file + '.bak', mutant.source_file)
 
@@ -204,10 +203,10 @@ class MutationTestRunner:
         code = 0
         if exception is not None:
             code = code | 1
-        if any(mutant.status == BAD_SURVIVED for mutant in mutants):
+        if any(mutant.status == Status.BAD_SURVIVED for mutant in mutants):
             code = code | 2
-        if any(mutant.status == BAD_TIMEOUT for mutant in mutants):
+        if any(mutant.status == Status.BAD_TIMEOUT for mutant in mutants):
             code = code | 4
-        if any(mutant.status == OK_SUSPICIOUS for mutant in mutants):
+        if any(mutant.status == Status.OK_SUSPICIOUS for mutant in mutants):
             code = code | 8
         return code
