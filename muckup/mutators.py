@@ -31,8 +31,8 @@ DUNDER_WHITELIST = [
 ]
 
 
-class Status(Enum):
-    """Statues a :class:`.Mutant` can have"""
+class MutantTestStatus(Enum):
+    """Test statues a :class:`.Mutant` can have"""
     UNTESTED = 'UNTESTED'
     OK_KILLED = 'OK_KILLED'
     OK_SUSPICIOUS = 'OK_SUSPICIOUS'
@@ -44,7 +44,7 @@ class Mutant:
 
     def __init__(self, line, index, line_number,
                  source_file=None,
-                 status=Status.UNTESTED):
+                 status=MutantTestStatus.UNTESTED):
         """Construct a Mutant
 
         :param line:
@@ -60,26 +60,28 @@ class Mutant:
         :type source_file: str
 
         :param status:
-        :type status: Status
+        :type status: MutantTestStatus
         """
-        self.source_file = source_file
         self.line = line
         self.index = index
         self.line_number = line_number
+        self.filename = source_file
         self.status = status
 
+        self.applied = False
+
     def __eq__(self, other):
-        return (self.source_file, self.line, self.index, self.line_number, self.status) == \
-               (other.source_file, other.line, other.index, other.line_number, self.status)
+        return (self.filename, self.line, self.index, self.line_number, self.status) == \
+               (other.filename, other.line, other.index, other.line_number, self.status)
 
     @property
     def context(self):
-        with open(self.source_file) as f:
+        with open(self.filename) as f:
             source = f.read()
-        return Context(
+        return MutationContext(
             source=source,
-            mutation_id=self,
-            filename=self.source_file
+            mutant=self,
+            filename=self.filename
         )
 
     # TODO: investigate
@@ -98,6 +100,9 @@ class Mutant:
     def apply(self, backup=True):
         """Apply the mutation to the existing source file also create
         a backup"""
+        if backup and self.applied:
+            raise ValueError("Mutant is already applied unapply "
+                             "it before calling apply")
         context = self.context
         result, number_of_mutations_performed = mutate(context)
         if context.number_of_performed_mutations == 0:
@@ -167,12 +172,9 @@ def lambda_mutation(children, **_):
     return children[:3] + [Name(value=' 0', start_pos=children[0].start_pos)]
 
 
-NEWLINE = {'formatting': [], 'indent': '', 'type': 'endl', 'value': ''}
-
-
 def argument_mutation(children, context, **_):
     """
-    :type context: Context
+    :type context: MutationContext
     """
     if len(context.stack) >= 3 and \
             context.stack[-3].type in ('power', 'atom_expr'):
@@ -345,12 +347,12 @@ mutations_by_type = {
 }
 
 
-class Context(object):
-    def __init__(self, source=None, mutation_id=None,
+class MutationContext(object):
+    def __init__(self, source=None, mutant=None,
                  filename=None, exclude=lambda context: False):
         self.index = 0
         self.source = source
-        self.mutation_id = mutation_id
+        self.mutation_id = mutant
         self.number_of_performed_mutations = 0
         self.performed_mutation_ids = []
         self.current_line_index = 0
@@ -385,7 +387,7 @@ class Context(object):
         return self.source_by_line_number[self.current_line_index]
 
     @property
-    def mutation_id_of_current_index(self):
+    def mutant_of_current_index(self):
         return Mutant(
             source_file=self.filename,
             line=self.current_source_line,
@@ -407,12 +409,12 @@ class Context(object):
     def should_mutate(self):
         if self.mutation_id is None:
             return True
-        return self.mutation_id == self.mutation_id_of_current_index
+        return self.mutation_id == self.mutant_of_current_index
 
 
 def mutate(context):
     """
-    :type context: Context
+    :type context: MutationContext
     :return: tuple: mutated source code, number of mutants performed
     """
     result = parse(context.source, error_recovery=False)
@@ -428,7 +430,7 @@ def mutate(context):
 
 def mutate_node(node, context):
     """
-    :type context: Context
+    :type context: MutationContext
     """
     context.stack.append(node)
     try:
@@ -473,7 +475,7 @@ def mutate_node(node, context):
                 if context.should_mutate():
                     context.number_of_performed_mutations += 1
                     context.performed_mutation_ids.append(
-                        context.mutation_id_of_current_index)
+                        context.mutant_of_current_index)
                     setattr(node, key, new)
                 context.index += 1
 
@@ -487,7 +489,7 @@ def mutate_node(node, context):
 
 def mutate_list_of_nodes(node, context):
     """
-    :type context: Context
+    :type context: MutationContext
     """
     for child in node.children:
 
@@ -510,7 +512,7 @@ def gen_mutations_for_file(filename, exclude):
 
     :param exclude: Mutant filtering function
     """
-    context = Context(
+    context = MutationContext(
         source=open(filename).read(),
         filename=filename,
         exclude=exclude,

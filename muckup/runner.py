@@ -12,7 +12,7 @@ import time
 from shutil import move, copy
 from threading import Timer
 
-from muckup.mutators import Mutant, Status
+from muckup.mutators import Mutant, MutantTestStatus
 
 if sys.version_info < (3, 0):   # pragma: no cover (python 2 specific)
     class TimeoutError(OSError):
@@ -111,7 +111,7 @@ class MutationTestRunner:
             self.time_test_suite()
         for mutant in mutants:
             original, mutation = mutant.mutation_original_pair
-            print("{}['{}'->'{}'] ".format(mutant.source_file, original, mutation), end='')
+            print("{}['{}'->'{}'] ".format(mutant.filename, original, mutation), end='')
             self.test_mutant(mutant)
             print(mutant.status)
         return self.compute_return_code(mutants)
@@ -122,7 +122,7 @@ class MutationTestRunner:
         :param mutant: The mutant to test.
         :type mutant: Mutant
         """
-        if mutant.status != Status.UNTESTED:
+        if mutant.status != MutantTestStatus.UNTESTED:
             return
         try:
             mutant.apply()
@@ -130,16 +130,16 @@ class MutationTestRunner:
             try:
                 survived = self.run_test(timeout=self.baseline_test_time * 10)
             except TimeoutError:
-                mutant.status = Status.BAD_TIMEOUT
+                mutant.status = MutantTestStatus.BAD_TIMEOUT
             else:
                 if time.time() - start > self.baseline_test_time * 2:
-                    mutant.status = Status.OK_SUSPICIOUS
+                    mutant.status = MutantTestStatus.OK_SUSPICIOUS
                 elif survived:
-                    mutant.status = Status.BAD_SURVIVED
+                    mutant.status = MutantTestStatus.BAD_SURVIVED
                 else:
-                    mutant.status = Status.OK_KILLED
+                    mutant.status = MutantTestStatus.OK_KILLED
         finally:
-            move(mutant.source_file + '.bak', mutant.source_file)
+            move(mutant.filename + '.bak', mutant.filename)
 
     def time_test_suite(self):
         """Compute the unmutated test suite's execution time
@@ -169,12 +169,12 @@ class MutationTestRunner:
             if not self.swallow_output:
                 print(line)
 
-        returncode = popen_streaming_output(
+        return_code = popen_streaming_output(
             cmd=self.test_command,
             callback=feedback,
             timeout=timeout
         )
-        return returncode == 0 or (self.using_testmon and returncode == 5)
+        return return_code == 0 or (self.using_testmon and return_code == 5)
 
     # TODO: hookup
     @staticmethod
@@ -203,10 +203,10 @@ class MutationTestRunner:
         code = 0
         if exception is not None:
             code = code | 1
-        if any(mutant.status == Status.BAD_SURVIVED for mutant in mutants):
+        if any(mutant.status == MutantTestStatus.BAD_SURVIVED for mutant in mutants):
             code = code | 2
-        if any(mutant.status == Status.BAD_TIMEOUT for mutant in mutants):
+        if any(mutant.status == MutantTestStatus.BAD_TIMEOUT for mutant in mutants):
             code = code | 4
-        if any(mutant.status == Status.OK_SUSPICIOUS for mutant in mutants):
+        if any(mutant.status == MutantTestStatus.OK_SUSPICIOUS for mutant in mutants):
             code = code | 8
         return code
