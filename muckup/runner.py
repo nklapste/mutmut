@@ -128,6 +128,11 @@ class MutationTestRunner:
             move(mutant.source_file + '.bak', mutant.source_file)
 
     def time_test_suite(self):
+        """Compute the unmutated test suite's execution time
+
+        :raise RuntimeError: If the unmutated tests fail.
+            Mutation testing cannot be done on a failing test suite.
+        """
         start_time = time.time()
         green_suite = self.run_test()
         if green_suite:
