@@ -82,6 +82,7 @@ def popen_streaming_output(cmd, callback, timeout=None):
 
 
 class MutationTestRunner:
+    """Test runner for :class:`muckup.mutators.Mutant`s"""
 
     def __init__(self, test_command, swallow_output=True,
                  using_testmon=False, baseline_test_time=None):
