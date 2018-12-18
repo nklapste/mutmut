@@ -12,7 +12,7 @@ from shutil import copy
 
 from glob2 import glob
 
-from muckup.mutators import gen_mutations_for_file
+from muckup.mutators import Mutator
 from muckup.runner import MutationTestRunner
 
 if sys.version_info < (3, 0):  # pragma: no cover (python 2 specific)
@@ -180,7 +180,11 @@ def main(argv=sys.argv[1:]):
     test_dirs = get_python_test_files(paths_to_mutate, args.test_dirs)
     for path in paths_to_mutate:
         for filename in get_python_source_files(path, test_dirs):
-            for mutant in gen_mutations_for_file(filename, _exclude):
+            for mutant in Mutator(
+                                source=open(filename).read(),
+                                filename=filename,
+                                exclude=_exclude,
+                            ).yield_mutants():
                 mutants.append(mutant)
     print("generated {} mutants".format(len(mutants)))
 
