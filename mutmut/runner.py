@@ -83,18 +83,19 @@ def popen_streaming_output(cmd, callback, timeout=None):
 
 class MutationTestRunner:
 
-    def __init__(self, mutants, test_command, swallow_output=True,
+    def __init__(self, test_command, swallow_output=True,
                  using_testmon=False, baseline_test_time=None):
-        self.mutants = mutants
         self.test_command = test_command
         self.swallow_output = swallow_output
         self.using_testmon = using_testmon
         self.baseline_test_time = baseline_test_time
 
-    def run_mutation_tests(self):
+    def run_mutation_tests(self, mutants):
+        print("{:=^79}".format(" Starting Mutation Tests "))
+        print("Using test runner: {}".format(self.test_command))
         if self.baseline_test_time is None:
-            self._time_test_suite()
-        for mutant in self.mutants:
+            self.time_test_suite()
+        for mutant in mutants:
             original, mutation = mutant.mutation_original_pair
             print("{}['{}'->'{}'] ".format(mutant.source_file, original, mutation), end='')
             self.test_mutant(mutant)
@@ -126,7 +127,7 @@ class MutationTestRunner:
         finally:
             move(mutant.source_file + '.bak', mutant.source_file)
 
-    def _time_test_suite(self):
+    def time_test_suite(self):
         start_time = time.time()
         green_suite = self.run_test()
         if green_suite:

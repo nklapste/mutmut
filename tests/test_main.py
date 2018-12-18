@@ -8,8 +8,7 @@ import sys
 
 import pytest
 
-from mutmut.__main__ import main
-from mutmut.file_collection import python_source_files
+from mutmut.__main__ import main, get_python_source_files
 
 pytestmark = [pytest.mark.skipif(sys.version_info < (3, 0), reason="Don't check Python 3 syntax in Python 2")]
 
@@ -109,4 +108,4 @@ def test_full_run_one_surviving_mutant(capsys):
 )
 @pytest.mark.usefixtures('filesystem')
 def test_python_source_files(expected, source_path, tests_dirs):
-    assert expected == list(python_source_files(source_path, tests_dirs))
+    assert expected == list(get_python_source_files(source_path, tests_dirs))
