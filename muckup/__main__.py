@@ -152,11 +152,13 @@ def main(argv=sys.argv[1:]):
         coverage_data.read_file(".coverage")
 
         covered_lines_by_filename = {}
+
         def _exclude(context):
             try:
                 covered_lines = covered_lines_by_filename[context.filename]
             except KeyError:
-                covered_lines = coverage_data.lines(os.path.abspath(context.filename))
+                covered_lines = \
+                    coverage_data.lines(os.path.abspath(context.filename))
                 covered_lines_by_filename[context.filename] = covered_lines
 
             if covered_lines is None:
@@ -187,4 +189,3 @@ def main(argv=sys.argv[1:]):
 
 if __name__ == '__main__':
     sys.exit(main())  # pylint: disable=no-value-for-parameter
-
