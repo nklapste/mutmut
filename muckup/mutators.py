@@ -365,7 +365,7 @@ class Mutator:
             return True
 
         return self.current_line_index in self.pragma_no_mutate_lines or \
-               self.exclude(context=self)
+            self.exclude(context=self)
 
     @property
     def source_by_line_number(self):
@@ -401,8 +401,6 @@ class Mutator:
     def mutate_node(self, node):
         self.stack.append(node)
         try:
-            node_type = node.type
-
             if node.type == 'tfpdef':
                 return
 
@@ -414,24 +412,21 @@ class Mutator:
             if hasattr(node, 'children'):
                 yield from self.mutate_list_of_nodes(node)
 
-            m = mutations_by_type.get(node_type)
+            mutations = mutations_by_type.get(node.type)
 
-            if m is None:
+            if mutations is None:
                 return
 
-            for node_key, mutation_operation in sorted(m.items()):
-                old = getattr(node, node_key)
+            for node_key, mutation_operation in sorted(mutations.items()):
                 if self.exclude_line():
                     continue
-
+                old = getattr(node, node_key)
                 new = mutation_operation(
                     context=self,
                     node=node,
                     value=getattr(node, 'value', None),
                     children=getattr(node, 'children', None),
                 )
-
-                assert not callable(new)
                 if new != old:
                     setattr(node, node_key, new)
                     yield Mutant(
