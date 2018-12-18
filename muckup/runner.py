@@ -103,11 +103,10 @@ class MutationTestRunner:
         return self.compute_return_code(mutants)
 
     def test_mutant(self, mutant):
-        """
+        """Test a given mutant and set its respective status on completion
 
-        :param mutant:
+        :param mutant: The mutant to test.
         :type mutant: Mutant
-        :return:
         """
         if mutant.status != UNTESTED:
             return
