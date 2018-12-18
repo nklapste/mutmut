@@ -43,21 +43,12 @@ class MutantTestStatus(Enum):
 
 class Mutant:
 
-    def __init__(self, line, index, line_number,
+    def __init__(self,
                  filename=None,
                  source=None,
                  mutated_source=None,
                  status=MutantTestStatus.UNTESTED):
         """Construct a Mutant
-
-        :param line:
-        :type line: str
-
-        :param index:
-        :type index: int
-
-        :param line_number:
-        :type line_number: int
 
         :param filename:
         :type filename: str or None
@@ -71,10 +62,6 @@ class Mutant:
         :param status:
         :type status: MutantTestStatus
         """
-        self.line = line
-        self.index = index
-        self.line_number = line_number
-
         self.filename = filename
         self.source = source
 
@@ -86,8 +73,8 @@ class Mutant:
         self.applied = False
 
     def __eq__(self, other):
-        return (self.filename, self.line, self.index, self.line_number, self.status) == \
-               (other.filename, other.line, other.index, other.line_number, self.status)
+        return (self.filename, self.source, self.mutated_source, self.status) == \
+               (other.filename, other.source, other.mutated_source, other.status)
 
     @property
     def mutation_original_pair(self):
@@ -448,9 +435,6 @@ class Mutator:
                 if new != old:
                     setattr(node, node_key, new)
                     yield Mutant(
-                        line=self.current_source_line,
-                        index=self.index,
-                        line_number=self.current_line_index,
                         filename=self.filename,
                         source=self.source,
                         mutated_source=node.get_root_node().get_code().replace(' not not ', ' ')
