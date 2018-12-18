@@ -67,6 +67,7 @@ class Mutant:
             filename=self.source_file
         )
 
+    # TODO: investigate
     @property
     def mutation_original_pair(self):
         mutated_source, number_of_mutations_performed = mutate(self.context)
@@ -412,7 +413,6 @@ def mutate_node(node, context):
     """
     context.stack.append(node)
     try:
-
         node_type = node.type
 
         if node.type == 'tfpdef':
