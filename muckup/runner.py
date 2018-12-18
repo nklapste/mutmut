@@ -86,6 +86,20 @@ class MutationTestRunner:
 
     def __init__(self, test_command, swallow_output=True,
                  using_testmon=False, baseline_test_time=None):
+        """Construct a MutationTestRunner
+
+        :param test_command:
+        :type test_command: str
+
+        :param swallow_output:
+        :type swallow_output: bool
+
+        :param using_testmon:
+        :type using_testmon: bool
+
+        :param baseline_test_time:
+        :type baseline_test_time: float or None
+        """
         self.test_command = test_command
         self.swallow_output = swallow_output
         self.using_testmon = using_testmon
