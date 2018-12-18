@@ -399,11 +399,11 @@ class Mutator:
             yield from self.mutate_node(child)
 
     def mutate_node(self, node):
+        if node.type == 'tfpdef':
+            return
+
         self.stack.append(node)
         try:
-            if node.type == 'tfpdef':
-                return
-
             if node.start_pos[0] - 1 != self.current_line_index:
                 self.current_line_index = node.start_pos[0] - 1
                 # indexes are unique per line, so start over here!
