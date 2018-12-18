@@ -164,10 +164,9 @@ def test_mutate_decorator():
     assert mutate(Context(source=source, mutation_id=ALL)) == (source.replace('@foo', ''), 1)
 
 
-# TODO: getting this test and the above to both pass is tricky
-# def test_mutate_decorator2():
-#     source = """\"""foo\"""\n\n@foo\ndef foo():\n    pass\n"""
-#     assert mutate(Context(source=source, mutation_id=ALL)) == (source.replace('@foo', ''), 1)
+def test_mutate_decorator2():
+    source = """\"""foo\"""\n@foo\ndef foo():\n    pass\n"""
+    assert mutate(Context(source=source, mutation_id=ALL)) == (source.replace('@foo', ''), 1)
 
 
 def test_mutate_dict():
