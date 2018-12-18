@@ -1,7 +1,7 @@
 #!/usr/bin/python
 # -*- coding: utf-8 -*-
 
-"""main entrypoint for muckup"""
+"""Main entry point for muckup"""
 
 from __future__ import print_function
 
@@ -24,7 +24,7 @@ else:
 
 
 def get_python_source_files(path_to_mutate, test_dirs):
-    """Yield the paths to all python source files
+    """Get the paths to all python source files
 
     :param path_to_mutate: path of the source package/file to mutate
     :type path_to_mutate: str
@@ -51,7 +51,7 @@ def get_python_source_files(path_to_mutate, test_dirs):
 
 
 def get_python_test_files(paths_to_mutate, test_dirs):
-    """Yield the paths to all python source files
+    """Get the paths to all python source files
 
     :param paths_to_mutate: path of the source package/file(s) to mutate
     :type paths_to_mutate: list[str]
@@ -111,7 +111,7 @@ def get_argparser():
 
 
 def main(argv=sys.argv[1:]):
-    """main entrypoint for muckup
+    """Main entry point for muckup
 
     :rtype: int
     """
