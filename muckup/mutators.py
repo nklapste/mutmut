@@ -513,7 +513,6 @@ def gen_mutations_for_file(filename, exclude):
         exclude=exclude,
     )
 
-    assert context.mutation_id == ALL
     mutate(context)
 
     for mutant in context.performed_mutation_ids:
