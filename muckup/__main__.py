@@ -113,6 +113,9 @@ def get_argparser():
 def main(argv=sys.argv[1:]):
     """Main entry point for muckup
 
+    :return: The return code of running mutation tests.
+        See :meth:`muckup.runner.MutationTestRunner.compute_return_code` for
+        specifics on possible return codes.
     :rtype: int
     """
     # stop python from creating .pyc files
