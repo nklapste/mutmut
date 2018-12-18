@@ -1,79 +1,34 @@
 #!/usr/bin/env python
 # -*- coding: utf-8 -*-
 
-"""setup.py for mutmut"""
+"""setup.py for muckup"""
 
 import os
 import re
 import sys
 
-from setuptools import setup, find_packages, Command
+from setuptools import setup, find_packages
 from setuptools.command.test import test
 
-readme = open('README.rst').read()
-history = open('HISTORY.rst').read().replace('.. :changelog:', '')
-
-
-def read_reqs(name):
-    with open(os.path.join(os.path.dirname(__file__), name)) as f:
-        return [line for line in f.read().split('\n') if line and not line.strip().startswith('#')]
+README = open('README.rst').read()
+NAME = "muckup"
 
 
 def read_version():
-    with open(os.path.join('mutmut', '__init__.py')) as f:
+    with open(os.path.join(NAME, '__init__.py')) as f:
         m = re.search(r'''__version__\s*=\s*['"]([^'"]*)['"]''', f.read())
         if m:
             return m.group(1)
         raise ValueError("couldn't find version")
 
 
-class Tag(Command):
-    user_options = []
-
-    def initialize_options(self):
-        pass
-
-    def finalize_options(self):
-        pass
-
-    def run(self):
-        from subprocess import call
-        version = read_version()
-        errno = call(['git', 'tag', '--annotate', version, '--message', 'Version %s' % version])
-        if errno == 0:
-            print("Added tag for version %s" % version)
-        raise SystemExit(errno)
-
-
-class ReleaseCheck(Command):
-    user_options = []
-
-    def initialize_options(self):
-        pass
-
-    def finalize_options(self):
-        pass
-
-    def run(self):
-        from subprocess import check_output
-        tag = check_output(['git', 'describe', '--all', '--exact-match', 'HEAD']).strip().split('/')[-1]
-        version = read_version()
-        if tag != version:
-            print('Missing %s tag on release' % version)
-            raise SystemExit(1)
-
-        current_branch = check_output(['git', 'rev-parse', '--abbrev-ref', 'HEAD']).strip()
-        if current_branch != 'master':
-            print('Only release from master')
-            raise SystemExit(1)
-
-        print("Ok to distribute files")
+VERSION = read_version()
 
 
 class Pylint(test):
     def run_tests(self):
         from pylint.lint import Run
-        Run(["mutmut", "--persistent", "y", "--rcfile", ".pylintrc",
+        Run([NAME, "--persistent", "y", "--rcfile", ".pylintrc",
              "--output-format", "colorized"])
 
 
@@ -82,7 +37,7 @@ class PyTest(test):
 
     def initialize_options(self):
         test.initialize_options(self)
-        self.pytest_args = "-v --cov={}".format("mutmut")
+        self.pytest_args = "-v --cov={}".format(NAME)
 
     def run_tests(self):
         import shlex
@@ -98,25 +53,21 @@ running_inside_tests = any(['pytest' in x[1] for x in inspect.stack()])
 # NB: _don't_ add namespace_packages to setup(), it'll break
 #     everything using imp.find_module
 setup(
-    name='mutmut',
-    version=read_version(),
-    description='',
-    long_description=readme,
-    author='Anders Hovmöller',
-    author_email='boxed@killingar.net',
-    url='https://github.com/boxed/mutmut',
-    packages=find_packages('.'),
-    package_dir={'': '.'},
+    name=NAME,
+    version=VERSION,
+    description='Simple mutation testing for python.',
+    long_description=README,
+    author='Nathan Klapstien',
+    author_email='nklapste@ualberta.ca',
+    url='https://github.com/nklapste/muckup',
+    packages=find_packages(),
     include_package_data=True,
     license="BSD",
     zip_safe=False,
-    keywords='',
+    keywords='mutation testing test mutant',
     install_requires=[
-        "click",
         "glob2",
         "parso",
-        "pony",
-        "tri.declarative",
     ],
     tests_require=[
         "pytest>=2.8.7",
@@ -138,14 +89,16 @@ setup(
         "Framework :: Pytest",
     ],
     test_suite='tests',
-    cmdclass={'tag': Tag,
-              'release_check': ReleaseCheck, "test": PyTest, "lint": Pylint},
+    cmdclass={
+        "test": PyTest,
+        "lint": Pylint
+    },
     # if I add entry_points while pytest runs,
     # it imports before the coverage collecting starts
     entry_points={
         'pytest11': [
-            'mutmut = mutmut.pytestplugin',
+            'muckup = muckup.pytestplugin',
         ]
     } if running_inside_tests else {},
-    scripts=['bin/mutmut'],
+    scripts=['bin/muckup'],
 )

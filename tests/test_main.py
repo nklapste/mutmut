@@ -1,16 +1,14 @@
 #!/usr/bin/python
 # -*- coding: utf-8 -*-
 
-"""pytests for :mod:`mutmut.__main__`"""
+"""pytests for :mod:`muckup.__main__`"""
 
 import os
 import sys
 
 import pytest
-from click.testing import CliRunner
 
-from mutmut.__main__ import main
-from mutmut.file_collection import python_source_files
+from muckup.__main__ import main, get_python_source_files
 
 pytestmark = [pytest.mark.skipif(sys.version_info < (3, 0), reason="Don't check Python 3 syntax in Python 2")]
 
@@ -50,63 +48,53 @@ def filesystem(tmpdir):
     foo = tmpdir.mkdir("test_fs").join("foo.py")
     foo.write(file_to_mutate_contents)
 
-    test_foo = tmpdir.mkdir(os.path.join("test_fs", "tests")).join(
-        "test_foo.py")
+    test_foo = \
+        tmpdir.mkdir(os.path.join("test_fs", "tests")).join("test_foo.py")
     test_foo.write(test_file_contents)
 
     os.chdir(str(tmpdir.join('test_fs')))
     yield
     os.chdir('..')
     # This is a hack to get pony to forget about the old db file
-    import mutmut.cache
-    mutmut.cache.DB.provider = None
-    mutmut.cache.DB.schema = None
 
 
 @pytest.mark.usefixtures('filesystem')
-def test_simple_apply():
-    result = CliRunner().invoke(main, ['run', '--paths-to-mutate=foo.py'], catch_exceptions=False)
-    CliRunner().invoke(main, ['apply', '1'], catch_exceptions=False)
-    with open('foo.py') as f:
-        assert f.read() != file_to_mutate_contents
+def test_missing_sources():
+    with pytest.raises(FileNotFoundError):
+        main(['nonsuch.py'])
 
 
 @pytest.mark.usefixtures('filesystem')
-def test_full_run_no_surviving_mutants():
-    CliRunner().invoke(main, ['run', '--paths-to-mutate=foo.py'], catch_exceptions=False)
-    result = CliRunner().invoke(main, ['results'], catch_exceptions=False)
-    print(repr(result.output))
-    assert u"""
-To apply a mutant on disk:
-    mutmut apply <id>
-
-To show a mutant:
-    mutmut show <id>
-""".strip() == result.output.strip()
+def test_no_source():
+    with pytest.raises(SystemExit):
+        main([])
 
 
 @pytest.mark.usefixtures('filesystem')
-def test_full_run_one_surviving_mutant():
+def test_smoke_use_coverage(capsys):
+    assert 0 == main(['foo.py', "--runner", "python -m pytest -x --cov=foo.py"])
+    out, err = capsys.readouterr()
+    assert "BAD_SURVIVED" not in out
+    assert "BAD_TIMEOUT" not in out
+    assert "OK_SUSPICIOUS" not in out
+
+
+@pytest.mark.usefixtures('filesystem')
+def test_full_run_no_surviving_mutants(capsys):
+    assert 0 == main(['foo.py'])
+    out, err = capsys.readouterr()
+    assert "BAD_SURVIVED" not in out
+    assert "BAD_TIMEOUT" not in out
+    assert "OK_SUSPICIOUS" not in out
+
+
+@pytest.mark.usefixtures('filesystem')
+def test_full_run_one_surviving_mutant(capsys):
     with open('tests/test_foo.py', 'w') as f:
         f.write(test_file_contents.replace('assert foo(2, 2) is False\n', ''))
-
-    CliRunner().invoke(main, ['run', '--paths-to-mutate=foo.py'], catch_exceptions=False)
-    result = CliRunner().invoke(main, ['results'], catch_exceptions=False)
-    print(repr(result.output))
-    assert u"""
-To apply a mutant on disk:
-    mutmut apply <id>
-
-To show a mutant:
-    mutmut show <id>
-
-
-Survived 🙁 (1)
-
----- foo.py (1) ----
-
-1
-""".strip() == result.output.strip()
+    assert 2 == main(['foo.py'])
+    out, err = capsys.readouterr()
+    assert "BAD_SURVIVED" in out
 
 
 @pytest.mark.parametrize(
@@ -120,4 +108,4 @@ Survived 🙁 (1)
 )
 @pytest.mark.usefixtures('filesystem')
 def test_python_source_files(expected, source_path, tests_dirs):
-    assert expected == list(python_source_files(source_path, tests_dirs))
+    assert expected == list(get_python_source_files(source_path, tests_dirs))

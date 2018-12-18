@@ -7,7 +7,6 @@ import sys
 
 from parso import parse
 from parso.python.tree import Name
-from tri.declarative import evaluate
 
 if sys.version_info < (3, 0):  # pragma: no cover (python 2 specific)
     # noinspection PyUnresolvedReferences
@@ -30,11 +29,11 @@ DUNDER_WHITELIST = [
     'copyright',
 ]
 
-UNTESTED = 'untested'
-OK_KILLED = 'ok_killed'
-OK_SUSPICIOUS = 'ok_suspicious'
-BAD_TIMEOUT = 'bad_timeout'
-BAD_SURVIVED = 'bad_survived'
+UNTESTED = 'UNTESTED'
+OK_KILLED = 'OK_KILLED'
+OK_SUSPICIOUS = 'OK_SUSPICIOUS'
+BAD_TIMEOUT = 'BAD_TIMEOUT'
+BAD_SURVIVED = 'BAD_SURVIVED'
 
 
 class MutationID(object):
@@ -43,16 +42,54 @@ class MutationID(object):
         self.index = index
         self.line_number = line_number
 
-    def __repr__(self):
-        return 'MutationID(line="%s", index=%s, line_number=%s)' % \
-               (self.line, self.index, self.line_number)
-
     def __eq__(self, other):
         return (self.line, self.index, self.line_number) == \
                (other.line, other.index, other.line_number)
 
 
 ALL = MutationID(line='%all%', index=-1, line_number=-1)
+
+
+class Mutant:
+
+    def __init__(self, source_file, mutation, status=UNTESTED):
+        self.source_file = source_file
+        self.mutation = mutation
+        self.status = status
+
+    @property
+    def context(self):
+        with open(self.source_file) as f:
+            source = f.read()
+        return Context(
+            source=source,
+            mutation_id=self.mutation,
+            filename=self.source_file
+        )
+
+    @property
+    def mutation_original_pair(self):
+        mutated_source, number_of_mutations_performed = mutate(self.context)
+        mutant = set(mutated_source.splitlines(keepends=True))
+        normie = set(self.context.source.splitlines(keepends=True))
+        mutation = list(mutant - normie)
+        original = list(normie - mutant)
+        # TODO: better generation
+        if number_of_mutations_performed == 0:
+            return None, None
+        return original[0].strip(), mutation[0].strip()
+
+    def apply(self, backup=True):
+        """Apply the mutation to the existing source file also create
+        a backup"""
+        context = self.context
+        mutate_file(
+            backup=backup,
+            context=context,
+        )
+        if context.number_of_performed_mutations == 0:
+            raise ValueError('ERROR: no mutants performed. '
+                             'Are you sure the index is not too big?')
 
 
 def number_mutation(value, **_):
@@ -131,7 +168,7 @@ def argument_mutation(children, context, **_):
     power_node = context.stack[stack_pos_of_power_node]
 
     if power_node.children[0].type == 'name' and \
-            power_node.children[0].value in context.dict_synonyms:
+            power_node.children[0].value in ['dict']:
         children = children[:]
         child = children[0]
         if child.type == 'name':
@@ -290,12 +327,9 @@ mutations_by_type = {
 }
 
 
-# TODO: detect regexes and mutate them in nasty ways? Maybe mutate all strings as if they are regexes
-
-
 class Context(object):
-    def __init__(self, source=None, mutation_id=ALL, dict_synonyms=None,
-                 filename=None, exclude=lambda context: False, config=None):
+    def __init__(self, source=None, mutation_id=ALL,
+                 filename=None, exclude=lambda context: False):
         self.index = 0
         self.source = source
         self.mutation_id = mutation_id
@@ -306,11 +340,8 @@ class Context(object):
         self.filename = filename
         self.exclude = exclude
         self.stack = []
-        self.dict_synonyms = (dict_synonyms or []) + ['dict']
         self._source_by_line_number = None
         self._pragma_no_mutate_lines = None
-        self._path_by_line = None
-        self.config = config
 
     def exclude_line(self):
         current_line = self.source_by_line_number[self.current_line_index]
@@ -319,11 +350,12 @@ class Context(object):
             if word in DUNDER_WHITELIST and rest.strip()[0] == '=':
                 return True
 
-        if current_line.strip() == "__import__('pkg_resources').declare_namespace(__name__)":
+        if current_line.strip() == \
+                "__import__('pkg_resources').declare_namespace(__name__)":
             return True
 
-        return self.current_line_index in self.pragma_no_mutate_lines or self.exclude(
-            context=self)
+        return self.current_line_index in self.pragma_no_mutate_lines or \
+               self.exclude(context=self)
 
     @property
     def source_by_line_number(self):
@@ -361,15 +393,9 @@ class Context(object):
 def mutate(context):
     """
     :type context: Context
-    :return: tuple: mutated source code, number of mutations performed
+    :return: tuple: mutated source code, number of mutants performed
     """
-    try:
-        result = parse(context.source, error_recovery=False)
-    except Exception:
-        print(
-            'Failed to parse %s. Internal error from parso follows.' % context.filename)
-        print('----------------------------------')
-        raise
+    result = parse(context.source, error_recovery=False)
     mutate_list_of_nodes(result, context=context)
     mutated_source = result.get_code().replace(' not not ', ' ')
     if context.number_of_performed_mutations:
@@ -415,13 +441,14 @@ def mutate_node(node, context):
             if context.exclude_line():
                 continue
 
-            new = evaluate(
-                value,
+            # TODO: figure usage
+            new = value(
                 context=context,
                 node=node,
                 value=getattr(node, 'value', None),
                 children=getattr(node, 'children', None),
             )
+
             assert not callable(new)
             if new != old:
                 if context.should_mutate():
@@ -456,24 +483,6 @@ def mutate_list_of_nodes(node, context):
             return
 
 
-def count_mutations(context):
-    """
-    :type context: Context
-    """
-    assert context.mutation_id == ALL
-    mutate(context)
-    return context.number_of_performed_mutations
-
-
-def list_mutations(context):
-    """
-    :type context: Context
-    """
-    assert context.mutation_id == ALL
-    mutate(context)
-    return context.performed_mutation_ids
-
-
 def mutate_file(backup, context):
     """
 
@@ -488,3 +497,23 @@ def mutate_file(backup, context):
     with open(context.filename, 'w') as f:
         f.write(result)
     return number_of_mutations_performed
+
+
+def gen_mutations_for_file(filename, exclude):
+    """Yield Mutants from the given python source file
+
+    :param filename: Path to the python source file to generate Mutants from.
+    :type filename: str
+
+    :param exclude: Mutant filtering function
+    """
+    context = Context(
+        source=open(filename).read(),
+        filename=filename,
+        exclude=exclude,
+    )
+
+    mutate(context)
+
+    for mutant in context.performed_mutation_ids:
+        yield Mutant(filename, mutant)
