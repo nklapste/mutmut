@@ -389,8 +389,9 @@ class Mutator:
         return self._pragma_no_mutate_lines
 
     def yield_mutants(self):
-        result = parse(self.source, error_recovery=False)
-        yield from self.mutate_list_of_nodes(result)
+        yield from self.mutate_list_of_nodes(
+            parse(self.source, error_recovery=False)
+        )
 
     def mutate_list_of_nodes(self, node):
         for child in node.children:
