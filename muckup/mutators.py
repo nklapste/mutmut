@@ -84,10 +84,13 @@ class Mutant:
         """Apply the mutation to the existing source file also create
         a backup"""
         context = self.context
-        mutate_file(
-            backup=backup,
-            context=context,
-        )
+        code = open(context.filename).read()
+        context.source = code
+        if backup:
+            open(context.filename + '.bak', 'w').write(code)
+        result, number_of_mutations_performed = mutate(context)
+        with open(context.filename, 'w') as f:
+            f.write(result)
         if context.number_of_performed_mutations == 0:
             raise ValueError('ERROR: no mutants performed. '
                              'Are you sure the index is not too big?')
@@ -481,22 +484,6 @@ def mutate_list_of_nodes(node, context):
         if context.number_of_performed_mutations and \
                 context.mutation_id != ALL:
             return
-
-
-def mutate_file(backup, context):
-    """
-
-    :type backup: bool
-    :type context: Context
-    """
-    code = open(context.filename).read()
-    context.source = code
-    if backup:
-        open(context.filename + '.bak', 'w').write(code)
-    result, number_of_mutations_performed = mutate(context)
-    with open(context.filename, 'w') as f:
-        f.write(result)
-    return number_of_mutations_performed
 
 
 def gen_mutations_for_file(filename, exclude):
