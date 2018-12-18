@@ -40,26 +40,37 @@ class Status(Enum):
     BAD_SURVIVED = 'BAD_SURVIVED'
 
 
-class MutationID(object):
-    def __init__(self, line, index, line_number):
+class Mutant:
+
+    def __init__(self, line, index, line_number,
+                 source_file=None,
+                 status=Status.UNTESTED):
+        """Construct a Mutant
+
+        :param line:
+        :type line: str
+
+        :param index:
+        :type index: int
+
+        :param line_number:
+        :type line_number: int
+
+        :param source_file:
+        :type source_file: str
+
+        :param status:
+        :type status: Status
+        """
+        self.source_file = source_file
         self.line = line
         self.index = index
         self.line_number = line_number
+        self.status = status
 
     def __eq__(self, other):
-        return (self.line, self.index, self.line_number) == \
-               (other.line, other.index, other.line_number)
-
-
-ALL = MutationID(line='%all%', index=-1, line_number=-1)
-
-
-class Mutant:
-
-    def __init__(self, source_file, mutation, status=Status.UNTESTED):
-        self.source_file = source_file
-        self.mutation = mutation
-        self.status = status
+        return (self.source_file, self.line, self.index, self.line_number, self.status) == \
+               (other.source_file, other.line, other.index, other.line_number, self.status)
 
     @property
     def context(self):
@@ -67,7 +78,7 @@ class Mutant:
             source = f.read()
         return Context(
             source=source,
-            mutation_id=self.mutation,
+            mutation_id=self,
             filename=self.source_file
         )
 
@@ -335,14 +346,13 @@ mutations_by_type = {
 
 
 class Context(object):
-    def __init__(self, source=None, mutation_id=ALL,
+    def __init__(self, source=None, mutation_id=None,
                  filename=None, exclude=lambda context: False):
         self.index = 0
         self.source = source
         self.mutation_id = mutation_id
         self.number_of_performed_mutations = 0
         self.performed_mutation_ids = []
-        assert isinstance(mutation_id, MutationID)
         self.current_line_index = 0
         self.filename = filename
         self.exclude = exclude
@@ -376,8 +386,12 @@ class Context(object):
 
     @property
     def mutation_id_of_current_index(self):
-        return MutationID(line=self.current_source_line, index=self.index,
-                          line_number=self.current_line_index)
+        return Mutant(
+            source_file=self.filename,
+            line=self.current_source_line,
+            index=self.index,
+            line_number=self.current_line_index
+        )
 
     @property
     def pragma_no_mutate_lines(self):
@@ -391,10 +405,9 @@ class Context(object):
         return self._pragma_no_mutate_lines
 
     def should_mutate(self):
-        if self.mutation_id == ALL:
+        if self.mutation_id is None:
             return True
-
-        return self.mutation_id in (ALL, self.mutation_id_of_current_index)
+        return self.mutation_id == self.mutation_id_of_current_index
 
 
 def mutate(context):
@@ -433,8 +446,8 @@ def mutate_node(node, context):
             mutate_list_of_nodes(node, context=context)
 
             # this is just an optimization to stop early
-            if context.number_of_performed_mutations and \
-                    context.mutation_id != ALL:
+            if context.number_of_performed_mutations != 0 and \
+                    context.mutation_id is not None:
                 return
 
         m = mutations_by_type.get(node_type)
@@ -466,7 +479,7 @@ def mutate_node(node, context):
 
             # this is just an optimization to stop early
             if context.number_of_performed_mutations and \
-                    context.mutation_id != ALL:
+                    context.mutation_id is not None:
                 return
     finally:
         context.stack.pop()
@@ -484,8 +497,8 @@ def mutate_list_of_nodes(node, context):
         mutate_node(child, context=context)
 
         # this is just an optimization to stop early
-        if context.number_of_performed_mutations and \
-                context.mutation_id != ALL:
+        if context.number_of_performed_mutations != 0 and \
+                context.mutation_id is not None:
             return
 
 
@@ -504,6 +517,4 @@ def gen_mutations_for_file(filename, exclude):
     )
 
     mutate(context)
-
-    for mutant in context.performed_mutation_ids:
-        yield Mutant(filename, mutant)
+    yield from context.performed_mutation_ids
