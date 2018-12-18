@@ -5,6 +5,7 @@
 
 import sys
 from enum import Enum
+from shutil import move
 
 from parso import parse
 from parso.python.tree import Name
@@ -97,22 +98,33 @@ class Mutant:
             return None, None
         return original[0].strip(), mutation[0].strip()
 
-    def apply(self, backup=True):
+    def apply(self):
         """Apply the mutation to the existing source file also create
         a backup"""
-        if backup and self.applied:
-            raise ValueError("Mutant is already applied unapply "
-                             "it before calling apply")
+        if self.applied:
+            raise RuntimeError("Mutant is applied. Call `Mutant.revert` "
+                               "before calling `Mutant.apply` again")
         context = self.context
         result, number_of_mutations_performed = mutate(context)
         if context.number_of_performed_mutations == 0:
             raise ValueError('ERROR: no mutants performed. '
                              'Are you sure the index is not too big?')
 
-        if backup:
-            open(context.filename + '.bak', 'w').write(context.source)
+        open(context.filename + '.bak', 'w').write(context.source)
         with open(context.filename, 'w') as f:
             f.write(result)
+
+        self.applied = True
+
+    def revert(self):
+        """Revert the application of the mutation to the existing
+        source file"""
+        if not self.applied:
+            raise RuntimeError("Mutant is not applied. Call `Mutant.apply` "
+                               "before calling `Mutant.revert` again")
+        move(self.filename + '.bak', self.filename)
+
+        self.applied = False
 
 
 def number_mutation(value, **_):

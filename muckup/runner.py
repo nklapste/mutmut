@@ -9,7 +9,7 @@ import shlex
 import subprocess
 import sys
 import time
-from shutil import move, copy
+from shutil import copy
 from threading import Timer
 
 from muckup.mutators import Mutant, MutantTestStatus
@@ -139,7 +139,7 @@ class MutationTestRunner:
                 else:
                     mutant.status = MutantTestStatus.OK_KILLED
         finally:
-            move(mutant.filename + '.bak', mutant.filename)
+            mutant.revert()
 
     def time_test_suite(self):
         """Compute the unmutated test suite's execution time
