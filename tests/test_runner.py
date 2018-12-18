@@ -7,8 +7,7 @@ from datetime import datetime
 
 import pytest
 
-from muckup.runner import popen_streaming_output, TimeoutError, \
-    MutationTestRunner
+from muckup.runner import popen_streaming_output, TimeoutError
 
 
 def test_timeout():
