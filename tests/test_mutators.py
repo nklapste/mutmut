@@ -7,7 +7,7 @@ import sys
 
 import pytest
 
-from muckup.mutators import Context, mutate, ALL, MutationID, list_mutations
+from muckup.mutators import Context, mutate, ALL, MutationID
 
 
 @pytest.mark.parametrize(
@@ -121,10 +121,11 @@ def test_mutate_all():
 
 def test_mutate_both():
     source = 'a = b + c'
-    mutations = list_mutations(Context(source=source))
-    assert len(mutations) == 2
-    assert mutate(Context(source=source, mutation_id=mutations[0])) == ('a = b - c', 1)
-    assert mutate(Context(source=source, mutation_id=mutations[1])) == ('a = None', 1)
+    context = Context(source=source)
+    mutate(context)
+    assert len(context.performed_mutation_ids) == 2
+    assert mutate(Context(source=source, mutation_id=context.performed_mutation_ids[0])) == ('a = b - c', 1)
+    assert mutate(Context(source=source, mutation_id=context.performed_mutation_ids[1])) == ('a = None', 1)
 
 
 def test_perform_one_indexed_mutation():

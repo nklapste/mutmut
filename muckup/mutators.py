@@ -483,15 +483,6 @@ def mutate_list_of_nodes(node, context):
             return
 
 
-def list_mutations(context):
-    """
-    :type context: Context
-    """
-    assert context.mutation_id == ALL
-    mutate(context)
-    return context.performed_mutation_ids
-
-
 def mutate_file(backup, context):
     """
 
@@ -521,5 +512,9 @@ def gen_mutations_for_file(filename, exclude):
         filename=filename,
         exclude=exclude,
     )
-    for mutant in list_mutations(context):
+
+    assert context.mutation_id == ALL
+    mutate(context)
+
+    for mutant in context.performed_mutation_ids:
         yield Mutant(filename, mutant)
