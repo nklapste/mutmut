@@ -88,16 +88,15 @@ class Mutant:
         """Apply the mutation to the existing source file also create
         a backup"""
         context = self.context
-        code = open(context.filename).read()
-        context.source = code
-        if backup:
-            open(context.filename + '.bak', 'w').write(code)
         result, number_of_mutations_performed = mutate(context)
-        with open(context.filename, 'w') as f:
-            f.write(result)
         if context.number_of_performed_mutations == 0:
             raise ValueError('ERROR: no mutants performed. '
                              'Are you sure the index is not too big?')
+
+        if backup:
+            open(context.filename + '.bak', 'w').write(context.source)
+        with open(context.filename, 'w') as f:
+            f.write(result)
 
 
 def number_mutation(value, **_):
