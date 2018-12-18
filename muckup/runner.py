@@ -100,6 +100,7 @@ class MutationTestRunner:
             print("{}['{}'->'{}'] ".format(mutant.source_file, original, mutation), end='')
             self.test_mutant(mutant)
             print(mutant.status)
+        return self.compute_return_code(mutants)
 
     def test_mutant(self, mutant):
         """
@@ -159,10 +160,7 @@ class MutationTestRunner:
 
     # TODO: hookup
     @staticmethod
-    def compute_return_code(surviving_mutants,
-                            surviving_mutants_timeout,
-                            suspicious_mutants,
-                            exception=None):
+    def compute_return_code(mutants, exception=None):
         """Compute an error code similar to how pylint does. (using bit OR)
 
         The following output status codes are available for muckup:
@@ -174,17 +172,8 @@ class MutationTestRunner:
          status codes 1 to 8 will be bit-ORed so you can know which different
          categories has been issued by analysing the mutmut output status code
 
-        :param suspicious_mutants: The number of suspicious mutants obtained
-            during mutation testing.
-        :type suspicious_mutants: int
-
-        :param surviving_mutants_timeout: The number of timed out surviving
-            mutants obtained during mutation testing.
-        :type surviving_mutants_timeout: int
-
-        :param surviving_mutants: The number of surviving mutants obtained
-            during mutation testing.
-        :type surviving_mutants: int
+        :param mutants: The list of tested mutants.
+        :type mutants: list[Mutant]
 
         :param exception: If an exception was thrown during test execution
             it should be given here.
@@ -196,10 +185,10 @@ class MutationTestRunner:
         code = 0
         if exception is not None:
             code = code | 1
-        if surviving_mutants > 0:
+        if any(mutant.status == BAD_SURVIVED for mutant in mutants):
             code = code | 2
-        if surviving_mutants_timeout > 0:
+        if any(mutant.status == BAD_TIMEOUT for mutant in mutants):
             code = code | 4
-        if suspicious_mutants > 0:
+        if any(mutant.status == OK_SUSPICIOUS for mutant in mutants):
             code = code | 8
         return code

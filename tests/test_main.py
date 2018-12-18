@@ -92,7 +92,7 @@ def test_full_run_no_surviving_mutants(capsys):
 def test_full_run_one_surviving_mutant(capsys):
     with open('tests/test_foo.py', 'w') as f:
         f.write(test_file_contents.replace('assert foo(2, 2) is False\n', ''))
-    main(['foo.py'])
+    assert 2 == main(['foo.py'])
     out, err = capsys.readouterr()
     assert "BAD_SURVIVED" in out
 

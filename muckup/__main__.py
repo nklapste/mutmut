@@ -179,12 +179,10 @@ def main(argv=sys.argv[1:]):
         for filename in get_python_source_files(path, test_dirs):
             for mutant in gen_mutations_for_file(filename, _exclude):
                 mutants.append(mutant)
-
     print("generated {} mutants".format(len(mutants)))
 
-    mutation_test_runner.run_mutation_tests(mutants)
-
-    return 0
+    # run the mutants
+    return mutation_test_runner.run_mutation_tests(mutants)
 
 
 if __name__ == '__main__':
