@@ -156,3 +156,50 @@ class MutationTestRunner:
             timeout=timeout
         )
         return returncode == 0 or (self.using_testmon and returncode == 5)
+
+    # TODO: hookup
+    @staticmethod
+    def compute_return_code(surviving_mutants,
+                            surviving_mutants_timeout,
+                            suspicious_mutants,
+                            exception=None):
+        """Compute an error code similar to how pylint does. (using bit OR)
+
+        The following output status codes are available for muckup:
+         * 0 if all mutants were killed (OK_KILLED)
+         * 1 if a fatal error occurred
+         * 2 if one or more mutants survived (BAD_SURVIVED)
+         * 4 if one or more mutants timed out (BAD_TIMEOUT)
+         * 8 if one or more mutants caused tests to take twice as long (OK_SUSPICIOUS)
+         status codes 1 to 8 will be bit-ORed so you can know which different
+         categories has been issued by analysing the mutmut output status code
+
+        :param suspicious_mutants: The number of suspicious mutants obtained
+            during mutation testing.
+        :type suspicious_mutants: int
+
+        :param surviving_mutants_timeout: The number of timed out surviving
+            mutants obtained during mutation testing.
+        :type surviving_mutants_timeout: int
+
+        :param surviving_mutants: The number of surviving mutants obtained
+            during mutation testing.
+        :type surviving_mutants: int
+
+        :param exception: If an exception was thrown during test execution
+            it should be given here.
+        :type exception: class[Exception]
+
+        :return: a integer noting the return status of the mutation tests.
+        :rtype: int
+        """
+        code = 0
+        if exception is not None:
+            code = code | 1
+        if surviving_mutants > 0:
+            code = code | 2
+        if surviving_mutants_timeout > 0:
+            code = code | 4
+        if suspicious_mutants > 0:
+            code = code | 8
+        return code
