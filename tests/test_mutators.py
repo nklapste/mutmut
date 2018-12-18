@@ -143,7 +143,8 @@ def test_function():
     assert mutate(Context(source=source, mutation_id=MutationID(source.split('\n')[1], 2, line_number=1))) == ("def capitalize(s):\n    return s[0].upper() + s[2:] if s else s\n", 1)
 
 
-@pytest.mark.skipif(sys.version_info < (3, 0), reason="Don't check Python 3 syntax in Python 2")
+@pytest.mark.skipif(sys.version_info < (3, 0),
+                    reason="Don't check Python 3 syntax in Python 2")
 def test_function_with_annotation():
     source = "def capitalize(s : str):\n    return s[0].upper() + s[1:] if s else s\n"
     assert mutate(Context(source=source, mutation_id=MutationID(source.split('\n')[1], 0, line_number=1))) == ("def capitalize(s : str):\n    return s[1].upper() + s[1:] if s else s\n", 1)
