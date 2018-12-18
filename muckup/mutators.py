@@ -500,12 +500,12 @@ def mutate_file(backup, context):
 
 
 def gen_mutations_for_file(filename, exclude):
-    """
+    """Yield Mutants from the given python source file
 
-    :param filename: the file to create mutants in
+    :param filename: Path to the python source file to generate Mutants from.
     :type filename: str
 
-    :param exclude:
+    :param exclude: Mutant filtering function
     """
     context = Context(
         source=open(filename).read(),
