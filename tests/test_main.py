@@ -62,12 +62,27 @@ def filesystem(tmpdir):
 @pytest.mark.usefixtures('filesystem')
 def test_missing_sources():
     with pytest.raises(FileNotFoundError):
-        main(["-s", 'nonsuch.py'])
+        main(['nonsuch.py'])
+
+
+@pytest.mark.usefixtures('filesystem')
+def test_no_source():
+    with pytest.raises(SystemExit):
+        main([])
+
+
+@pytest.mark.usefixtures('filesystem')
+def test_smoke_use_coverage(capsys):
+    assert 0 == main(['foo.py', "--runner", "python -m pytest -x --cov=foo.py"])
+    out, err = capsys.readouterr()
+    assert "BAD_SURVIVED" not in out
+    assert "BAD_TIMEOUT" not in out
+    assert "OK_SUSPICIOUS" not in out
 
 
 @pytest.mark.usefixtures('filesystem')
 def test_full_run_no_surviving_mutants(capsys):
-    assert 0 == main(["-s", 'foo.py'])
+    assert 0 == main(['foo.py'])
     out, err = capsys.readouterr()
     assert "BAD_SURVIVED" not in out
     assert "BAD_TIMEOUT" not in out
@@ -78,7 +93,7 @@ def test_full_run_no_surviving_mutants(capsys):
 def test_full_run_one_surviving_mutant(capsys):
     with open('tests/test_foo.py', 'w') as f:
         f.write(test_file_contents.replace('assert foo(2, 2) is False\n', ''))
-    main(["-s", 'foo.py'])
+    main(['foo.py'])
     out, err = capsys.readouterr()
     assert "BAD_SURVIVED" in out
 

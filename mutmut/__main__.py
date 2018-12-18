@@ -12,12 +12,11 @@ from shutil import copy
 
 from glob2 import glob
 
-from mutmut.file_collection import python_source_files, read_coverage_data, \
-    get_or_guess_paths_to_mutate
+from mutmut.file_collection import python_source_files, read_coverage_data
 from mutmut.mutators import gen_mutations_for_file
 from mutmut.runner import MutationTestRunner
 
-if sys.version_info < (3, 0):   # pragma: no cover (python 2 specific)
+if sys.version_info < (3, 0):  # pragma: no cover (python 2 specific)
     # noinspection PyCompatibility,PyUnresolvedReferences
     from ConfigParser import ConfigParser, NoOptionError, NoSectionError  # pylint: disable=import-error
 else:
@@ -36,25 +35,27 @@ def get_argparser():
         description="Simple mutation testing for python.",
         formatter_class=argparse.ArgumentDefaultsHelpFormatter
     )
-    parser.add_argument("-b", "--backup", action="store_true", dest="backup")  # TODO: help values
-    parser.add_argument("-s", "--sources", nargs="*",
-                            help="Path to the source package(s)/file(s) to "
-                                 "mutate test. If no path is specified it will"
-                                 "be guessed.")
+    parser.add_argument("-b", "--backup", action="store_true",
+                        dest="backup",
+                        help="Create a backup of source files before mutations")  # TODO: help values
+    parser.add_argument("file_or_dir", nargs="+",
+                        help="Path to the source package(s)/file(s) to "
+                             "mutate test. If no path is specified it will"
+                             "be guessed.")
     parser.add_argument("-t", "--tests", dest="tests_dir", default="tests",
-                            nargs="*",
-                            help="Path to the testing file(s) to challenge "
-                                 "mutations with.")
+                        nargs="*",
+                        help="Path to the testing file(s) to challenge "
+                             "mutations with.")
     parser.add_argument("-r", "--runner", default='python -m pytest -x',
                         help="Python test runner (and its arguments) to "
                              "invoke each mutation test run.")
     parser.add_argument("-q", "--quiet-stdout", action="store_true",
-                            dest="output_capture",
-                            help="Turn off output capture of spawned "
-                                 "sub-processes.")
+                        dest="output_capture",
+                        help="Turn off output capture of spawned "
+                             "sub-processes.")
     parser.add_argument("-co", "--use-coverage", dest="use_coverage",
-                            help="Only mutate code that is covered within the "
-                                 "specified `.coverage` file.")
+                        help="Only mutate code that is covered within the "
+                             "specified `.coverage` file.")
 
     return parser
 
@@ -65,15 +66,7 @@ def main(argv=sys.argv[1:]):
     parser = get_argparser()
     args = parser.parse_args(argv)
 
-    if not args.sources:
-        paths_to_mutate = get_or_guess_paths_to_mutate()
-    else:
-        paths_to_mutate = args.sources
-
-    if not paths_to_mutate:
-        raise FileNotFoundError('You must specify a list of paths to mutate. '
-                                'Either as a command line argument, or by '
-                                'setting paths_to_mutate under the section')
+    paths_to_mutate = args.file_or_dir
 
     tests_dirs = []
     for p in args.tests_dir:
