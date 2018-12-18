@@ -44,7 +44,8 @@ class MutantTestStatus(Enum):
 class Mutant:
 
     def __init__(self, line, index, line_number,
-                 source_file=None,
+                 filename=None,
+                 source=None,
                  status=MutantTestStatus.UNTESTED):
         """Construct a Mutant
 
@@ -57,8 +58,11 @@ class Mutant:
         :param line_number:
         :type line_number: int
 
-        :param source_file:
-        :type source_file: str
+        :param filename:
+        :type filename: str
+
+        :param source:
+        :type source; str
 
         :param status:
         :type status: MutantTestStatus
@@ -66,7 +70,10 @@ class Mutant:
         self.line = line
         self.index = index
         self.line_number = line_number
-        self.filename = source_file
+
+        self.filename = filename
+        self.source = source
+
         self.status = status
 
         self.applied = False
@@ -77,25 +84,27 @@ class Mutant:
 
     @property
     def context(self):
-        with open(self.filename) as f:
-            source = f.read()
         return MutationContext(
-            source=source,
+            source=self.source,
             mutant=self,
             filename=self.filename
         )
 
+    @property
+    def mutated_source(self):
+        mutated_source, number_of_mutations_performed = mutate(self.context)
+        if number_of_mutations_performed == 0:
+            raise ValueError('ERROR: no mutants performed. '
+                             'Are you sure the index is not too big?')
+        return mutated_source
+
     # TODO: investigate
     @property
     def mutation_original_pair(self):
-        mutated_source, number_of_mutations_performed = mutate(self.context)
-        mutant = set(mutated_source.splitlines(keepends=True))
-        normie = set(self.context.source.splitlines(keepends=True))
+        mutant = set(self.mutated_source.splitlines(keepends=True))
+        normie = set(self.source.splitlines(keepends=True))
         mutation = list(mutant - normie)
         original = list(normie - mutant)
-        # TODO: better generation
-        if number_of_mutations_performed == 0:
-            return None, None
         return original[0].strip(), mutation[0].strip()
 
     def apply(self):
@@ -104,15 +113,10 @@ class Mutant:
         if self.applied:
             raise RuntimeError("Mutant is applied. Call `Mutant.revert` "
                                "before calling `Mutant.apply` again")
-        context = self.context
-        result, number_of_mutations_performed = mutate(context)
-        if context.number_of_performed_mutations == 0:
-            raise ValueError('ERROR: no mutants performed. '
-                             'Are you sure the index is not too big?')
 
-        open(context.filename + '.bak', 'w').write(context.source)
-        with open(context.filename, 'w') as f:
-            f.write(result)
+        open(self.filename + '.bak', 'w').write(self.source)
+        with open(self.filename, 'w') as f:
+            f.write(self.mutated_source)
 
         self.applied = True
 
@@ -401,10 +405,11 @@ class MutationContext(object):
     @property
     def mutant_of_current_index(self):
         return Mutant(
-            source_file=self.filename,
             line=self.current_source_line,
             index=self.index,
-            line_number=self.current_line_index
+            line_number=self.current_line_index,
+            filename=self.filename,
+            source=self.source
         )
 
     @property
