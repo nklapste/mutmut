@@ -327,9 +327,6 @@ mutations_by_type = {
 }
 
 
-# TODO: detect regexes and mutate them in nasty ways? Maybe mutate all strings as if they are regexes
-
-
 class Context(object):
     def __init__(self, source=None, mutation_id=ALL,
                  filename=None, exclude=lambda context: False):
