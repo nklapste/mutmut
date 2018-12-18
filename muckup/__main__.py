@@ -1,7 +1,7 @@
 #!/usr/bin/python
 # -*- coding: utf-8 -*-
 
-"""main entrypoint for mutmut"""
+"""main entrypoint for muckup"""
 
 from __future__ import print_function
 
@@ -12,8 +12,8 @@ from shutil import copy
 
 from glob2 import glob
 
-from mutmut.mutators import gen_mutations_for_file
-from mutmut.runner import MutationTestRunner
+from muckup.mutators import gen_mutations_for_file
+from muckup.runner import MutationTestRunner
 
 if sys.version_info < (3, 0):  # pragma: no cover (python 2 specific)
     # noinspection PyCompatibility,PyUnresolvedReferences
@@ -77,13 +77,13 @@ def get_python_test_files(paths_to_mutate, test_dirs):
 
 
 def get_argparser():
-    """Get the main argument parser for mutmut
+    """Get the main argument parser for muckup
 
-    :return: the main argument parser for mutmut
+    :return: the main argument parser for muckup
     :rtype: argparse.ArgumentParser
     """
     parser = argparse.ArgumentParser(
-        prog="mutmut",
+        prog="muckup",
         description="Simple mutation testing for python.",
         formatter_class=argparse.ArgumentDefaultsHelpFormatter
     )
@@ -111,7 +111,7 @@ def get_argparser():
 
 
 def main(argv=sys.argv[1:]):
-    """main entrypoint for mutmut
+    """main entrypoint for muckup
 
     :rtype: int
     """

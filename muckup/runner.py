@@ -12,7 +12,7 @@ import time
 from shutil import move, copy
 from threading import Timer
 
-from mutmut.mutators import Mutant, UNTESTED, OK_KILLED, OK_SUSPICIOUS, \
+from muckup.mutators import Mutant, UNTESTED, OK_KILLED, OK_SUSPICIOUS, \
     BAD_SURVIVED, BAD_TIMEOUT
 
 if sys.version_info < (3, 0):   # pragma: no cover (python 2 specific)

@@ -1,14 +1,14 @@
 #!/usr/bin/python
 # -*- coding: utf-8 -*-
 
-"""pytests for :mod:`mutmut.__main__`"""
+"""pytests for :mod:`muckup.__main__`"""
 
 import os
 import sys
 
 import pytest
 
-from mutmut.__main__ import main, get_python_source_files
+from muckup.__main__ import main, get_python_source_files
 
 pytestmark = [pytest.mark.skipif(sys.version_info < (3, 0), reason="Don't check Python 3 syntax in Python 2")]
 

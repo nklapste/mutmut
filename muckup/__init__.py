@@ -1,9 +1,9 @@
 #!/usr/bin/python
 # -*- coding: utf-8 -*-
 
-"""mutmut
+"""muckup
 
-Mutmut is a mutation testing system for Python 2 and 3, with a strong focus
+muckup is a mutation testing system for Python 2 and 3, with a strong focus
 on ease of use.
 
 Scripts:
@@ -13,4 +13,4 @@ Modules:
  + :mod:`.runner` - mutation test runner
 """
 
-__version__ = '1.1.0'
+__version__ = '0.0.0'

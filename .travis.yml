@@ -62,4 +62,4 @@ jobs:
         on:
           python: 3.6
           tags: true
-          repo: boxed/mutmut
+          repo: boxed/muckup

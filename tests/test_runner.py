@@ -1,14 +1,14 @@
 #!/usr/bin/python
 # -*- coding: utf-8 -*-
 
-"""pytests for :mod:`mutmut.runner`"""
+"""pytests for :mod:`muckup.runner`"""
 
 from datetime import datetime
 
 import pytest
 
-from mutmut.runner import popen_streaming_output
-from mutmut.runner import TimeoutError
+from muckup.runner import popen_streaming_output
+from muckup.runner import TimeoutError
 
 
 def test_timeout():

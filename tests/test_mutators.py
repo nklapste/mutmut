@@ -1,13 +1,13 @@
 #!/usr/bin/python
 # -*- coding: utf-8 -*-
 
-"""pytests for :mod:`mutmut.mutators`"""
+"""pytests for :mod:`muckup.mutators`"""
 
 import sys
 
 import pytest
 
-from mutmut.mutators import Context, mutate, ALL, MutationID, list_mutations
+from muckup.mutators import Context, mutate, ALL, MutationID, list_mutations
 
 
 @pytest.mark.parametrize(
