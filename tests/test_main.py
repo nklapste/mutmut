@@ -45,18 +45,13 @@ def test_foo():
 
 @pytest.fixture
 def filesystem(tmpdir):
-    tmpdir.mkdir("test_fs")
-    foo_package = tmpdir.mkdir(os.path.join("test_fs", "foo"))
+    foo_package = tmpdir.mkdir("foo")
     foo = foo_package.join("foo.py")
     foo.write(file_to_mutate_contents)
-
-    test_foo = \
-        tmpdir.mkdir(os.path.join("test_fs", "tests")).join("test_foo.py")
+    test_foo = tmpdir.mkdir("tests").join("test_foo.py")
     test_foo.write(test_file_contents)
-
-    os.chdir(str(tmpdir.join('test_fs')))
+    os.chdir(tmpdir)
     yield
-    # This is a hack to get pony to forget about the old db file
 
 
 @pytest.mark.usefixtures('filesystem')
@@ -73,11 +68,8 @@ def test_no_source():
 
 @pytest.mark.usefixtures('filesystem')
 def test_smoke_use_coverage(capsys):
-    assert main(
-        ['foo', "--runner", "python -m pytest -x --cov=foo", "--use-coverage",
-         "-s"]) == 0
+    assert main(['foo', "--runner", "python -m pytest -x --cov=foo", "--use-coverage"]) == 0
     out, err = capsys.readouterr()
-    print(out)
     assert "OK_KILLED" in out
 
     assert "OK_SUSPICIOUS" not in out
@@ -87,8 +79,7 @@ def test_smoke_use_coverage(capsys):
 
 @pytest.mark.usefixtures('filesystem')
 def test_smoke_use_testmon(capsys):
-    assert main(
-        ['foo', "--runner", "python -m pytest -x --testmon", "-s"]) == 0
+    assert main(['foo', "--runner", "python -m pytest -x --testmon"]) == 0
     out, err = capsys.readouterr()
     assert "OK_KILLED" in out
 
