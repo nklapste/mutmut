@@ -54,7 +54,6 @@ def filesystem(tmpdir):
 
     os.chdir(str(tmpdir.join('test_fs')))
     yield
-    os.chdir('..')
     # This is a hack to get pony to forget about the old db file
 
 
@@ -72,11 +71,17 @@ def test_no_source():
 
 @pytest.mark.usefixtures('filesystem')
 def test_smoke_use_coverage(capsys):
-    assert 0 == main(['foo.py', "--runner", "python -m pytest -x --cov=foo.py"])
+    assert 0 == main(['foo.py', "--runner", "python -m pytest -x --cov=foo.py", "--use-coverage"])
     out, err = capsys.readouterr()
     assert "BAD_SURVIVED" not in out
     assert "BAD_TIMEOUT" not in out
     assert "OK_SUSPICIOUS" not in out
+
+
+@pytest.mark.usefixtures('filesystem')
+def test_use_coverage_missing_file(capsys):
+    with pytest.raises(FileNotFoundError):
+        main(['foo.py', "--runner", "python -m pytest -x", "--use-coverage"])
 
 
 @pytest.mark.usefixtures('filesystem')
