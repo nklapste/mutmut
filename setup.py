@@ -73,6 +73,7 @@ setup(
         "pytest>=2.8.7",
         "pytest-cov",
         "pylint>=1.9.1,<2.0.0",
+        "pytest-testmon",
     ],
     classifiers=[
         'Development Status :: 4 - Beta',

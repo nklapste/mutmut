@@ -30,7 +30,7 @@ else:
 file_to_mutate_contents = '\n'.join(file_to_mutate_lines) + '\n'
 
 test_file_contents = '''
-from foo import *
+from foo.foo import *
 
 def test_foo():
    assert foo(1, 2) is True
@@ -45,7 +45,9 @@ def test_foo():
 
 @pytest.fixture
 def filesystem(tmpdir):
-    foo = tmpdir.mkdir("test_fs").join("foo.py")
+    tmpdir.mkdir("test_fs")
+    foo_package = tmpdir.mkdir(os.path.join("test_fs", "foo"))
+    foo = foo_package.join("foo.py")
     foo.write(file_to_mutate_contents)
 
     test_foo = \
@@ -71,46 +73,83 @@ def test_no_source():
 
 @pytest.mark.usefixtures('filesystem')
 def test_smoke_use_coverage(capsys):
-    assert 0 == main(['foo.py', "--runner", "python -m pytest -x --cov=foo.py", "--use-coverage"])
+    assert main(
+        ['foo', "--runner", "python -m pytest -x --cov=foo", "--use-coverage",
+         "-s"]) == 0
     out, err = capsys.readouterr()
+    print(out)
+    assert "OK_KILLED" in out
+
+    assert "OK_SUSPICIOUS" not in out
     assert "BAD_SURVIVED" not in out
     assert "BAD_TIMEOUT" not in out
+
+
+@pytest.mark.usefixtures('filesystem')
+def test_smoke_use_testmon(capsys):
+    assert main(
+        ['foo', "--runner", "python -m pytest -x --testmon", "-s"]) == 0
+    out, err = capsys.readouterr()
+    assert "OK_KILLED" in out
+
     assert "OK_SUSPICIOUS" not in out
+    assert "BAD_SURVIVED" not in out
+    assert "BAD_TIMEOUT" not in out
+
+
+@pytest.mark.usefixtures('filesystem')
+def test_smoke_capture_output(capsys):
+    assert main(['foo', "-s"]) == 0
+    out, err = capsys.readouterr()
+    print(out)
+    assert "OK_KILLED" in out
+
+    assert "OK_SUSPICIOUS" not in out
+    assert "BAD_SURVIVED" not in out
+    assert "BAD_TIMEOUT" not in out
 
 
 @pytest.mark.usefixtures('filesystem')
 def test_use_coverage_missing_file(capsys):
     with pytest.raises(FileNotFoundError):
-        main(['foo.py', "--runner", "python -m pytest -x", "--use-coverage"])
+        main(['foo', "--runner", "python -m pytest -x", "--use-coverage"])
 
 
 @pytest.mark.usefixtures('filesystem')
 def test_full_run_no_surviving_mutants(capsys):
-    assert 0 == main(['foo.py'])
+    assert main(['foo']) == 0
     out, err = capsys.readouterr()
+    assert "OK_KILLED" in out
+
+    assert "OK_SUSPICIOUS" not in out
     assert "BAD_SURVIVED" not in out
     assert "BAD_TIMEOUT" not in out
-    assert "OK_SUSPICIOUS" not in out
 
 
 @pytest.mark.usefixtures('filesystem')
 def test_full_run_one_surviving_mutant(capsys):
     with open('tests/test_foo.py', 'w') as f:
         f.write(test_file_contents.replace('assert foo(2, 2) is False\n', ''))
-    assert 2 == main(['foo.py'])
+    assert main(['foo']) == 2
     out, err = capsys.readouterr()
+    assert "OK_KILLED" in out
     assert "BAD_SURVIVED" in out
+
+    assert "OK_SUSPICIOUS" not in out
+    assert "BAD_TIMEOUT" not in out
 
 
 @pytest.mark.parametrize(
     "expected, source_path, tests_dirs",
     [
         (["foo.py"], "foo.py", []),
-        ([os.path.join(".", "foo.py"),
+        ([os.path.join(".", "foo", "foo.py"),
           os.path.join(".", "tests", "test_foo.py")], ".", []),
-        ([os.path.join(".", "foo.py")], ".", [os.path.join(".", "tests")])
+        ([os.path.join(".", "foo", "foo.py")], ".",
+         [os.path.join(".", "tests")]),
+        ([os.path.join("foo", "foo.py")], "foo", [os.path.join(".", "tests")])
     ]
 )
 @pytest.mark.usefixtures('filesystem')
 def test_python_source_files(expected, source_path, tests_dirs):
-    assert expected == list(get_python_source_files(source_path, tests_dirs))
+    assert list(get_python_source_files(source_path, tests_dirs)) == expected
