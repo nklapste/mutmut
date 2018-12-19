@@ -374,10 +374,6 @@ class Mutator:
         return self._source_by_line_number
 
     @property
-    def current_source_line(self):
-        return self.source_by_line_number[self.current_line_index]
-
-    @property
     def pragma_no_mutate_lines(self):
         if self._pragma_no_mutate_lines is None:
             self._pragma_no_mutate_lines = {
