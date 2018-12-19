@@ -158,8 +158,8 @@ def main(argv=sys.argv[1:]):
                 'runner is generating one?'
             )
 
-        import coverage
-        coverage_data = coverage.CoverageData()
+        from coverage.data import CoverageData
+        coverage_data = CoverageData()
         coverage_data.read_file(".coverage")
 
         covered_lines_by_filename = {}
