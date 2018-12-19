@@ -4,6 +4,8 @@
 """Mutation testing definitions and helpers"""
 
 import sys
+from enum import Enum
+from shutil import move
 
 from parso import parse
 from parso.python.tree import Name
@@ -29,68 +31,81 @@ DUNDER_WHITELIST = [
     'copyright',
 ]
 
-UNTESTED = 'UNTESTED'
-OK_KILLED = 'OK_KILLED'
-OK_SUSPICIOUS = 'OK_SUSPICIOUS'
-BAD_TIMEOUT = 'BAD_TIMEOUT'
-BAD_SURVIVED = 'BAD_SURVIVED'
 
-
-class MutationID(object):
-    def __init__(self, line, index, line_number):
-        self.line = line
-        self.index = index
-        self.line_number = line_number
-
-    def __eq__(self, other):
-        return (self.line, self.index, self.line_number) == \
-               (other.line, other.index, other.line_number)
-
-
-ALL = MutationID(line='%all%', index=-1, line_number=-1)
+class MutantTestStatus(Enum):
+    """Test statues a :class:`.Mutant` can have"""
+    UNTESTED = 'UNTESTED'
+    OK_KILLED = 'OK_KILLED'
+    OK_SUSPICIOUS = 'OK_SUSPICIOUS'
+    BAD_TIMEOUT = 'BAD_TIMEOUT'
+    BAD_SURVIVED = 'BAD_SURVIVED'
 
 
 class Mutant:
 
-    def __init__(self, source_file, mutation, status=UNTESTED):
-        self.source_file = source_file
-        self.mutation = mutation
+    def __init__(self,
+                 filename=None,
+                 source=None,
+                 mutated_source=None,
+                 status=MutantTestStatus.UNTESTED):
+        """Construct a Mutant
+
+        :param filename:
+        :type filename: str or None
+
+        :param source:
+        :type source; str or None
+
+        :param mutated_source:
+        :type mutated_source; str or None
+
+        :param status:
+        :type status: MutantTestStatus
+        """
+        self.filename = filename
+        self.source = source
+
+        # to be set by MutantGenerator
+        self.mutated_source = mutated_source
+
         self.status = status
 
-    @property
-    def context(self):
-        with open(self.source_file) as f:
-            source = f.read()
-        return Context(
-            source=source,
-            mutation_id=self.mutation,
-            filename=self.source_file
-        )
+        self.applied = False
 
-    # TODO: investigate
+    def __eq__(self, other):
+        return (self.filename, self.source, self.mutated_source, self.status) == \
+               (other.filename, other.source, other.mutated_source, other.status)
+
     @property
     def mutation_original_pair(self):
-        mutated_source, number_of_mutations_performed = mutate(self.context)
-        mutant = set(mutated_source.splitlines(keepends=True))
-        normie = set(self.context.source.splitlines(keepends=True))
+        mutant = set(self.mutated_source.splitlines(keepends=True))
+        normie = set(self.source.splitlines(keepends=True))
         mutation = list(mutant - normie)
         original = list(normie - mutant)
-        # TODO: better generation
-        if number_of_mutations_performed == 0:
-            return None, None
         return original[0].strip(), mutation[0].strip()
 
-    def apply(self, backup=True):
+    def apply(self):
         """Apply the mutation to the existing source file also create
         a backup"""
-        context = self.context
-        mutate_file(
-            backup=backup,
-            context=context,
-        )
-        if context.number_of_performed_mutations == 0:
-            raise ValueError('ERROR: no mutants performed. '
-                             'Are you sure the index is not too big?')
+        if self.applied:
+            raise RuntimeError("Mutant is applied. Call `Mutant.revert` "
+                               "before calling `Mutant.apply` again")
+
+        open(self.filename + '.bak', 'w').write(self.source)
+        with open(self.filename, 'w') as f:
+            f.write(self.mutated_source)
+
+        self.applied = True
+
+    def revert(self):
+        """Revert the application of the mutation to the existing
+        source file"""
+        if not self.applied:
+            raise RuntimeError("Mutant is not applied. Call `Mutant.apply` "
+                               "before calling `Mutant.revert` again")
+        move(self.filename + '.bak', self.filename)
+
+        self.applied = False
 
 
 def number_mutation(value, **_):
@@ -150,12 +165,9 @@ def lambda_mutation(children, **_):
     return children[:3] + [Name(value=' 0', start_pos=children[0].start_pos)]
 
 
-NEWLINE = {'formatting': [], 'indent': '', 'type': 'endl', 'value': ''}
-
-
 def argument_mutation(children, context, **_):
     """
-    :type context: Context
+    :type context: Mutator
     """
     if len(context.stack) >= 3 and \
             context.stack[-3].type in ('power', 'atom_expr'):
@@ -328,19 +340,16 @@ mutations_by_type = {
 }
 
 
-class Context(object):
-    def __init__(self, source=None, mutation_id=ALL,
-                 filename=None, exclude=lambda context: False):
-        self.index = 0
+class Mutator:
+    def __init__(self, source=None, filename=None,
+                 exclude=lambda context: False):
         self.source = source
-        self.mutation_id = mutation_id
-        self.number_of_performed_mutations = 0
-        self.performed_mutation_ids = []
-        assert isinstance(mutation_id, MutationID)
-        self.current_line_index = 0
         self.filename = filename
         self.exclude = exclude
+
         self.stack = []
+        self.index = 0
+        self.current_line_index = 0
         self._source_by_line_number = None
         self._pragma_no_mutate_lines = None
 
@@ -356,22 +365,13 @@ class Context(object):
             return True
 
         return self.current_line_index in self.pragma_no_mutate_lines or \
-               self.exclude(context=self)
+            self.exclude(context=self)
 
     @property
     def source_by_line_number(self):
         if self._source_by_line_number is None:
             self._source_by_line_number = self.source.split('\n')
         return self._source_by_line_number
-
-    @property
-    def current_source_line(self):
-        return self.source_by_line_number[self.current_line_index]
-
-    @property
-    def mutation_id_of_current_index(self):
-        return MutationID(line=self.current_source_line, index=self.index,
-                          line_number=self.current_line_index)
 
     @property
     def pragma_no_mutate_lines(self):
@@ -384,136 +384,58 @@ class Context(object):
             }
         return self._pragma_no_mutate_lines
 
-    def should_mutate(self):
-        if self.mutation_id == ALL:
-            return True
+    def yield_mutants(self):
+        for mutant in self.mutate_list_of_nodes(
+                parse(self.source, error_recovery=False)):
+            yield mutant
 
-        return self.mutation_id in (ALL, self.mutation_id_of_current_index)
+    def mutate_list_of_nodes(self, node):
+        for child in node.children:
+            if child.type == 'operator' and child.value == '->':
+                return
+            for mutant in self.mutate_node(child):
+                yield mutant
 
-
-def mutate(context):
-    """
-    :type context: Context
-    :return: tuple: mutated source code, number of mutants performed
-    """
-    result = parse(context.source, error_recovery=False)
-    mutate_list_of_nodes(result, context=context)
-    mutated_source = result.get_code().replace(' not not ', ' ')
-    if context.number_of_performed_mutations:
-        # Check that if we said we mutated the code,
-        # that it has actually changed
-        assert context.source != mutated_source
-    context.mutated_source = mutated_source
-    return mutated_source, context.number_of_performed_mutations
-
-
-def mutate_node(node, context):
-    """
-    :type context: Context
-    """
-    context.stack.append(node)
-    try:
-        node_type = node.type
-
+    def mutate_node(self, node):
         if node.type == 'tfpdef':
             return
 
-        if node.start_pos[0] - 1 != context.current_line_index:
-            context.current_line_index = node.start_pos[0] - 1
-            # indexes are unique per line, so start over here!
-            context.index = 0
+        self.stack.append(node)
+        try:
+            if node.start_pos[0] - 1 != self.current_line_index:
+                self.current_line_index = node.start_pos[0] - 1
+                # indexes are unique per line, so start over here!
+                self.index = 0
 
-        if hasattr(node, 'children'):
-            mutate_list_of_nodes(node, context=context)
+            if hasattr(node, 'children'):
+                for mutant in self.mutate_list_of_nodes(node):
+                    yield mutant
 
-            # this is just an optimization to stop early
-            if context.number_of_performed_mutations and \
-                    context.mutation_id != ALL:
+            mutations = mutations_by_type.get(node.type)
+
+            if mutations is None:
                 return
 
-        m = mutations_by_type.get(node_type)
+            for node_key, mutation_operation in sorted(mutations.items()):
+                if self.exclude_line():
+                    continue
+                old = getattr(node, node_key)
+                new = mutation_operation(
+                    context=self,
+                    node=node,
+                    value=getattr(node, 'value', None),
+                    children=getattr(node, 'children', None),
+                )
+                if new != old:
+                    setattr(node, node_key, new)
+                    yield Mutant(
+                        filename=self.filename,
+                        source=self.source,
+                        mutated_source=node.get_root_node().get_code().replace(' not not ', ' ')
+                    )
+                    setattr(node, node_key, old)
+                    self.index += 1
 
-        if m is None:
-            return
-
-        for key, value in sorted(m.items()):
-            old = getattr(node, key)
-            if context.exclude_line():
-                continue
-
-            # TODO: figure usage
-            new = value(
-                context=context,
-                node=node,
-                value=getattr(node, 'value', None),
-                children=getattr(node, 'children', None),
-            )
-
-            assert not callable(new)
-            if new != old:
-                if context.should_mutate():
-                    context.number_of_performed_mutations += 1
-                    context.performed_mutation_ids.append(
-                        context.mutation_id_of_current_index)
-                    setattr(node, key, new)
-                context.index += 1
-
-            # this is just an optimization to stop early
-            if context.number_of_performed_mutations and \
-                    context.mutation_id != ALL:
-                return
-    finally:
-        context.stack.pop()
-
-
-def mutate_list_of_nodes(node, context):
-    """
-    :type context: Context
-    """
-    for child in node.children:
-
-        if child.type == 'operator' and child.value == '->':
-            return
-
-        mutate_node(child, context=context)
-
-        # this is just an optimization to stop early
-        if context.number_of_performed_mutations and \
-                context.mutation_id != ALL:
-            return
-
-
-def mutate_file(backup, context):
-    """
-
-    :type backup: bool
-    :type context: Context
-    """
-    code = open(context.filename).read()
-    context.source = code
-    if backup:
-        open(context.filename + '.bak', 'w').write(code)
-    result, number_of_mutations_performed = mutate(context)
-    with open(context.filename, 'w') as f:
-        f.write(result)
-    return number_of_mutations_performed
-
-
-def gen_mutations_for_file(filename, exclude):
-    """Yield Mutants from the given python source file
-
-    :param filename: Path to the python source file to generate Mutants from.
-    :type filename: str
-
-    :param exclude: Mutant filtering function
-    """
-    context = Context(
-        source=open(filename).read(),
-        filename=filename,
-        exclude=exclude,
-    )
-
-    mutate(context)
-
-    for mutant in context.performed_mutation_ids:
-        yield Mutant(filename, mutant)
+            # TODO: could potentially add additional mutations layers
+        finally:
+            self.stack.pop()

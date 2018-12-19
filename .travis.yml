@@ -31,6 +31,23 @@ after_success:
 
 jobs:
   include:
+    - os: osx
+      language: sh
+      python: 3.7
+      # Perform the manual steps on osx to install python3 and activate venv
+      before_install:
+        - brew update
+        - brew upgrade python3
+        - python3 -m pip install virtualenv
+        - virtualenv venv -p python3
+        - source venv/bin/activate
+    - os: windows
+      language: sh
+      python: 3.7
+      before_install:
+        - choco install python3
+        - export PATH="/c/Python37:/c/Python37/Scripts:$PATH"
+        - python -m pip install --upgrade pip wheel
     - python: 2.7
     - python: 3.4
     - python: 3.5
@@ -38,17 +55,15 @@ jobs:
     - python: 3.7
       dist: xenial
     - python: pypy
-# TODO: resolve issues    - python: pypy3
+    - python: pypy3
     - stage: linting
-      python:
-        - 3.6
+      python: 3.6
       before_script: skip
       after_script: skip
       script:
         - python setup.py lint || exit $(($? & 35))
     - stage: build
-      python:
-        - 3.6
+      python: 3.6
       before_script: skip
       after_script: skip
       script:

@@ -9,10 +9,11 @@ import argparse
 import os
 import sys
 from shutil import copy
+from time import sleep
 
 from glob2 import glob
 
-from muckup.mutators import gen_mutations_for_file
+from muckup.mutators import Mutator
 from muckup.runner import MutationTestRunner
 
 if sys.version_info < (3, 0):  # pragma: no cover (python 2 specific)
@@ -104,6 +105,7 @@ def get_argparser():
                         help="Turn off output capture of spawned "
                              "sub-processes.")
     parser.add_argument("-co", "--use-coverage", dest="use_coverage",
+                        action="store_true",
                         help="Only mutate code that is covered within the "
                              "`.coverage` file.")
 
@@ -136,23 +138,28 @@ def main(argv=sys.argv[1:]):
     # Note: if coverage was specified in the runner this should create
     # the `.coverage` file
     mutation_test_runner.time_test_suite()
-
     # save a copy of the testmon data for later usage in mutation tests
     if using_testmon:
         copy('.testmondata', '.testmondata-initial')
 
     # configure coverage filtering for mutant generation
     if args.use_coverage:
-        if not os.path.exists(".coverage"):
+        # wait ten seconds for the `.coverage` to be generated
+        # some systems there is some delay after pytest --cov={} is finished
+        for i in range(10):
+            if os.path.exists(".coverage"):
+                print("Using `.coverage` data to filter mutation creation")
+                break
+            else:
+                sleep(1)
+        else:
             raise FileNotFoundError(
                 'No valid `.coverage` file found. Are you sure your test '
                 'runner is generating one?'
             )
-        print("Using `.coverage` data to filter mutation creation")
 
-        import coverage
-        coverage_data = coverage.CoverageData()
-        coverage_data.read_file(".coverage")
+        from coverage import Coverage
+        coverage_data = Coverage(".coverage").get_data()
 
         covered_lines_by_filename = {}
 
@@ -180,7 +187,11 @@ def main(argv=sys.argv[1:]):
     test_dirs = get_python_test_files(paths_to_mutate, args.test_dirs)
     for path in paths_to_mutate:
         for filename in get_python_source_files(path, test_dirs):
-            for mutant in gen_mutations_for_file(filename, _exclude):
+            for mutant in Mutator(
+                                source=open(filename).read(),
+                                filename=filename,
+                                exclude=_exclude,
+                            ).yield_mutants():
                 mutants.append(mutant)
     print("generated {} mutants".format(len(mutants)))
 
