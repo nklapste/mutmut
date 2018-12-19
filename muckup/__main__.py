@@ -148,6 +148,7 @@ def main(argv=sys.argv[1:]):
         # some systems there is some delay after pytest --cov={} is finished
         for i in range(10):
             if os.path.exists(".coverage"):
+                print("Using `.coverage` data to filter mutation creation")
                 break
             else:
                 sleep(1)
@@ -156,7 +157,6 @@ def main(argv=sys.argv[1:]):
                 'No valid `.coverage` file found. Are you sure your test '
                 'runner is generating one?'
             )
-        print("Using `.coverage` data to filter mutation creation")
 
         import coverage
         coverage_data = coverage.CoverageData()
