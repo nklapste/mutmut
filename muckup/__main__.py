@@ -8,7 +8,6 @@ from __future__ import print_function
 import argparse
 import os
 import sys
-from shutil import copyfile
 from time import sleep
 
 from glob2 import glob
@@ -139,15 +138,27 @@ def main(argv=sys.argv[1:]):
     # Note: if coverage was specified in the runner this should create
     # the `.coverage` file
     mutation_test_runner.time_test_suite()
-    # save a copy of the testmon data for later usage in mutation tests
+
     if using_testmon:
-        copy('.testmondata', '.testmondata-initial')
+        # wait five seconds for the `.testmondata` to be generated
+        # some systems there is some delay after pytest --testmon is finished
+        for i in range(5):
+            if os.path.exists(".testmondata"):
+                print("Using `.testmondata` data to optimize mutation tests")
+                break
+            else:
+                sleep(1)
+        else:
+            raise FileNotFoundError(
+                'No valid `.testmondata` file found. Are you sure your test '
+                'runner is generating one?'
+            )
 
     # configure coverage filtering for mutant generation
     if args.use_coverage:
-        # wait ten seconds for the `.coverage` to be generated
+        # wait five seconds for the `.coverage` to be generated
         # some systems there is some delay after pytest --cov={} is finished
-        for i in range(10):
+        for i in range(5):
             if os.path.exists(".coverage"):
                 print("Using `.coverage` data to filter mutation creation")
                 break
@@ -173,7 +184,6 @@ def main(argv=sys.argv[1:]):
                 covered_lines = \
                     coverage_data.lines(os.path.abspath(context.filename))
                 covered_lines_by_filename[context.filename] = covered_lines
-
             if covered_lines is None:
                 return True
             current_line = context.current_line_index + 1

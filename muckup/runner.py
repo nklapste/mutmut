@@ -9,7 +9,6 @@ import shlex
 import subprocess
 import sys
 import time
-from shutil import copyfile
 from threading import Timer
 
 from muckup.mutators import Mutant, MutantTestStatus
@@ -126,8 +125,8 @@ class MutationTestRunner:
             return
         try:
             mutant.apply()
-            start = time.time()
             try:
+                start = time.time()
                 survived = self.run_test(timeout=self.baseline_test_time * 10)
             except TimeoutError:
                 mutant.status = MutantTestStatus.BAD_TIMEOUT
@@ -174,7 +173,12 @@ class MutationTestRunner:
             callback=feedback,
             timeout=timeout
         )
-        return return_code == 0 or (self.using_testmon and return_code == 5)
+        # testmon failed to notice change
+        if self.using_testmon and return_code == 5:
+            # TODO log warning
+            print("WARNING: pytest-mon failed to detect mutant change")
+            return False
+        return return_code == 0
 
     # TODO: hookup
     @staticmethod
