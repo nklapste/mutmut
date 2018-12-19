@@ -385,15 +385,16 @@ class Mutator:
         return self._pragma_no_mutate_lines
 
     def yield_mutants(self):
-        yield from self.mutate_list_of_nodes(
-            parse(self.source, error_recovery=False)
-        )
+        for mutant in self.mutate_list_of_nodes(
+                parse(self.source, error_recovery=False)):
+            yield mutant
 
     def mutate_list_of_nodes(self, node):
         for child in node.children:
             if child.type == 'operator' and child.value == '->':
                 return
-            yield from self.mutate_node(child)
+            for mutant in self.mutate_node(child):
+                yield mutant
 
     def mutate_node(self, node):
         if node.type == 'tfpdef':
@@ -407,7 +408,8 @@ class Mutator:
                 self.index = 0
 
             if hasattr(node, 'children'):
-                yield from self.mutate_list_of_nodes(node)
+                for mutant in self.mutate_list_of_nodes(node):
+                    yield mutant
 
             mutations = mutations_by_type.get(node.type)
 
