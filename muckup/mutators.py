@@ -437,5 +437,7 @@ class Mutator:
                     )
                     setattr(node, node_key, old)
                     self.index += 1
+
+            # TODO: could potentially add additional mutations layers
         finally:
             self.stack.pop()
