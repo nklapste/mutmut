@@ -10,9 +10,6 @@ import pytest
 
 from muckup.__main__ import main, get_python_source_files
 
-pytestmark = [pytest.mark.skipif(sys.version_info < (3, 0), reason="Don't check Python 3 syntax in Python 2")]
-
-
 file_to_mutate_lines = [
     "def foo(a, b):",
     "    return a < b",
@@ -26,8 +23,8 @@ if sys.version_info >= (3, 6):   # pragma: no cover (python 2 specific)
 else:
     file_to_mutate_lines.append("g = 2")
 
-
 file_to_mutate_contents = '\n'.join(file_to_mutate_lines) + '\n'
+
 
 test_file_contents = '''
 from foo.foo import *
@@ -120,7 +117,7 @@ def test_full_run_no_surviving_mutants(capsys):
 
 @pytest.mark.usefixtures('filesystem')
 def test_full_run_one_surviving_mutant(capsys):
-    with open('tests/test_foo.py', 'w') as f:
+    with open(os.path.join('tests', 'test_foo.py'), 'w') as f:
         f.write(test_file_contents.replace('assert foo(2, 2) is False\n', ''))
     assert main(['foo']) == 2
     out, err = capsys.readouterr()
