@@ -40,6 +40,9 @@ class MutantTestStatus(Enum):
     BAD_TIMEOUT = 'BAD_TIMEOUT'
     BAD_SURVIVED = 'BAD_SURVIVED'
 
+    def __str__(self):
+        return self.value
+
 
 class Mutant:
 
