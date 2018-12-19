@@ -75,10 +75,6 @@ class Mutant:
 
         self.applied = False
 
-    def __eq__(self, other):
-        return (self.filename, self.source, self.mutated_source, self.status) == \
-               (other.filename, other.source, other.mutated_source, other.status)
-
     @property
     def mutation_original_pair(self):
         mutant = set(self.mutated_source.splitlines(keepends=True))
