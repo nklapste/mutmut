@@ -8,7 +8,7 @@ from __future__ import print_function
 import argparse
 import os
 import sys
-from shutil import copy
+from shutil import copyfile
 from time import sleep
 
 from glob2 import glob
@@ -159,7 +159,9 @@ def main(argv=sys.argv[1:]):
             )
 
         from coverage import Coverage
-        coverage_data = Coverage(".coverage").get_data()
+        coverage = Coverage()
+        coverage.load()
+        coverage_data = coverage.get_data()
 
         covered_lines_by_filename = {}
 
