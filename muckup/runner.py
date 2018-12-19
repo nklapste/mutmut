@@ -9,7 +9,7 @@ import shlex
 import subprocess
 import sys
 import time
-from shutil import copy
+from shutil import copyfile
 from threading import Timer
 
 from muckup.mutators import Mutant, MutantTestStatus
@@ -62,7 +62,7 @@ def popen_streaming_output(cmd, callback, timeout=None):
     while process.returncode is None:
         try:
             # -1 to remove the newline at the end
-            line = process.stdout.readline()[:-1]
+            line = process.stdout.readline()
             callback(line)
         except OSError:
             # This seems to happen on some platforms, including TravisCI.
@@ -83,15 +83,15 @@ def popen_streaming_output(cmd, callback, timeout=None):
 class MutationTestRunner:
     """Test runner for :class:`muckup.mutators.Mutant`s"""
 
-    def __init__(self, test_command, swallow_output=True,
+    def __init__(self, test_command, capture_output=False,
                  using_testmon=False, baseline_test_time=None):
         """Construct a MutationTestRunner
 
         :param test_command:
         :type test_command: str
 
-        :param swallow_output:
-        :type swallow_output: bool
+        :param capture_output:
+        :type capture_output: bool
 
         :param using_testmon:
         :type using_testmon: bool
@@ -100,7 +100,7 @@ class MutationTestRunner:
         :type baseline_test_time: float or None
         """
         self.test_command = test_command
-        self.swallow_output = swallow_output
+        self.capture_output = capture_output
         self.using_testmon = using_testmon
         self.baseline_test_time = baseline_test_time
 
@@ -162,12 +162,12 @@ class MutationTestRunner:
         :return: boolean noting if the test suite has passed
         :rtype: bool
         """
-        if self.using_testmon:
-            copy('.testmondata-initial', '.testmondata')
+        if self.capture_output:
+            print()
 
         def feedback(line):
-            if not self.swallow_output:
-                print(line)
+            if self.capture_output:
+                print(line, end='')
 
         return_code = popen_streaming_output(
             cmd=self.test_command,

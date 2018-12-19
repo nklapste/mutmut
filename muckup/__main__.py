@@ -100,9 +100,9 @@ def get_argparser():
     parser.add_argument("-r", "--runner", default='python -m pytest -x',
                         help="Python test runner (and its arguments) to "
                              "invoke each mutation test run.")
-    parser.add_argument("-q", "--quiet-stdout", action="store_true",
-                        dest="output_capture",
-                        help="Turn off output capture of spawned "
+    parser.add_argument("-s", "--view-stdout", action="store_true",
+                        dest="capture_output",
+                        help="Turn on output capture of spawned "
                              "sub-processes.")
     parser.add_argument("-co", "--use-coverage", dest="use_coverage",
                         action="store_true",
@@ -130,6 +130,7 @@ def main(argv=sys.argv[1:]):
     mutation_test_runner = MutationTestRunner(
         test_command=args.runner,
         using_testmon=using_testmon,
+        capture_output=args.capture_output,
     )
 
     # run the unmutated tests
