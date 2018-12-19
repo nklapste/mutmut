@@ -9,6 +9,7 @@ import argparse
 import os
 import sys
 from shutil import copy
+from time import sleep
 
 from glob2 import glob
 
@@ -104,6 +105,7 @@ def get_argparser():
                         help="Turn off output capture of spawned "
                              "sub-processes.")
     parser.add_argument("-co", "--use-coverage", dest="use_coverage",
+                        action="store_true",
                         help="Only mutate code that is covered within the "
                              "`.coverage` file.")
 
@@ -136,14 +138,20 @@ def main(argv=sys.argv[1:]):
     # Note: if coverage was specified in the runner this should create
     # the `.coverage` file
     mutation_test_runner.time_test_suite()
-
     # save a copy of the testmon data for later usage in mutation tests
     if using_testmon:
         copy('.testmondata', '.testmondata-initial')
 
     # configure coverage filtering for mutant generation
     if args.use_coverage:
-        if not os.path.exists(".coverage"):
+        # wait ten seconds for the `.coverage` to be generated
+        # some systems there is some delay after pytest --cov={} is finished
+        for i in range(10):
+            if os.path.exists(".coverage"):
+                break
+            else:
+                sleep(1)
+        else:
             raise FileNotFoundError(
                 'No valid `.coverage` file found. Are you sure your test '
                 'runner is generating one?'
