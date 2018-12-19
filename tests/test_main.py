@@ -45,12 +45,13 @@ def test_foo():
 
 @pytest.fixture
 def filesystem(tmpdir):
+    """Setup a mock project directory"""
     foo_package = tmpdir.mkdir("foo")
     foo = foo_package.join("foo.py")
     foo.write(file_to_mutate_contents)
     test_foo = tmpdir.mkdir("tests").join("test_foo.py")
     test_foo.write(test_file_contents)
-    os.chdir(tmpdir)
+    os.chdir(str(tmpdir))
     yield
 
 
