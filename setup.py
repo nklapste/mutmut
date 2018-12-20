@@ -68,6 +68,7 @@ setup(
     install_requires=[
         "glob2",
         "parso",
+        "python-nonblock"
     ],
     tests_require=[
         "pytest>=2.8.7",

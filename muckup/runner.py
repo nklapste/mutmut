@@ -11,6 +11,8 @@ import sys
 import time
 from threading import Timer
 
+from nonblock import nonblock_read
+
 from muckup.mutators import Mutant, MutantTestStatus
 
 if sys.version_info < (3, 0):   # pragma: no cover (python 2 specific)
@@ -61,7 +63,7 @@ def popen_streaming_output(cmd, callback, timeout=None):
     while process.returncode is None:
         try:
             # -1 to remove the newline at the end
-            line = process.stdout.readline()
+            line = nonblock_read(process.stdout)
             callback(line)
         except OSError:
             # This seems to happen on some platforms, including TravisCI.
