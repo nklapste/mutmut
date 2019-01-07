@@ -56,8 +56,6 @@ def filesystem(tmpdir):
     test_foo.write(test_file_contents)
 
     os.chdir(str(tmpdir.join('test_fs')))
-    yield
-    os.chdir('..')
     # This is a hack to get pony to forget about the old db file
     import mutmut.cache
     mutmut.cache.db.provider = None
