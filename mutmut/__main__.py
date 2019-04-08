@@ -5,7 +5,6 @@ from __future__ import print_function
 
 import itertools
 import os
-import shlex
 import subprocess
 import sys
 import traceback
@@ -46,7 +45,12 @@ if sys.version_info < (3, 0):   # pragma: no cover (python 2 specific)
     # noinspection PyShadowingBuiltins
     class FileNotFoundError(OSError):
         """Defining FileNotFoundError for Python 2 compatibility"""
+
+    import trollius as asyncio
+    from trollius import From
 else:
+    import asyncio
+    from asyncio.subprocess import PIPE, STDOUT
     # noinspection PyUnresolvedReferences,PyCompatibility
     from configparser import ConfigParser, NoOptionError, NoSectionError
 
@@ -54,7 +58,13 @@ else:
     TimeoutError = TimeoutError
 
 
-# decorator
+if sys.platform == "win32":
+    loop = asyncio.ProactorEventLoop()  # for subprocess' pipes on Windows
+    asyncio.set_event_loop(loop)
+else:
+    loop = asyncio.get_event_loop() # decorator
+
+
 def config_from_setup_cfg(**defaults):
     def decorator(f):
         @wraps(f)
@@ -433,6 +443,49 @@ Legend for output:
         print()  # make sure we end the output with a newline
 
 
+
+if sys.version_info < (3, 4):
+    @asyncio.coroutine
+    def run_command(cmd, callback, timeout):
+        process = asyncio.async(asyncio.create_subprocess_shell(cmd, stdout=PIPE, stderr=STDOUT))
+
+        # read line (sequence of bytes ending with b'\n') asynchronously
+        while process.returncode is None:
+            try:
+                line = asyncio.async(asyncio.wait_for(process.stdout.readline(), timeout))
+            except asyncio.TimeoutError:
+                raise TimeoutError("oof")
+            else:
+                if not line:  # EOF
+                    break
+                else:
+                    callback(line.decode("utf-8").rstrip())
+                    continue
+        process.kill()
+        return asyncio.async(process.wait())  # wait for the child process to exit
+
+else:
+    async def run_command(cmd, callback, timeout):
+        # start child process
+        # NOTE: universal_newlines parameter is not supported
+        process = await asyncio.create_subprocess_shell(cmd, stdout=PIPE, stderr=STDOUT)
+
+        # read line (sequence of bytes ending with b'\n') asynchronously
+        while process.returncode is None:
+            try:
+                line = await asyncio.wait_for(process.stdout.readline(), timeout)
+            except asyncio.TimeoutError:
+                raise TimeoutError("subprocess running command '{}' timed out after {} seconds".format(cmd, timeout))
+            else:
+                if not line: # EOF
+                    break
+                else:
+                    callback(line.decode("utf-8").rstrip())
+                    continue
+        process.kill()
+        return await process.wait() # wait for the child process to exit
+
+
 def popen_streaming_output(cmd, callback, timeout=None):
     """Open a subprocess and stream its output without hard-blocking.
 
@@ -452,63 +505,18 @@ def popen_streaming_output(cmd, callback, timeout=None):
     :return: the return code of the executed subprocess
     :rtype: int
     """
-    if os.name == 'nt':  # pragma: no cover
-        process = subprocess.Popen(
-            shlex.split(cmd),
-            stdout=subprocess.PIPE,
-            stderr=subprocess.PIPE
-        )
-        stdout = process.stdout
-    else:
-        master, slave = os.openpty()
-        process = subprocess.Popen(
-            shlex.split(cmd, posix=True),
-            stdout=slave,
-            stderr=slave
-        )
-        stdout = os.fdopen(master)
-        os.close(slave)
-
-    def kill(process_):
-        """Kill the specified process on Timer completion"""
-        try:
-            process_.kill()
-        except OSError:
-            pass
-
-    # python 2-3 agnostic process timer
-    timer = Timer(timeout, kill, [process])
+    def timerfunc():
+        pass
+    timer = Timer(timeout, timerfunc)
     timer.setDaemon(True)
     timer.start()
-
-    while process.returncode is None:
-        try:
-            if os.name == 'nt':  # pragma: no cover
-                line = stdout.readline()
-                # windows gives readline() raw stdout as a b''
-                # need to decode it
-                line = line.decode("utf-8")
-                if line:  # ignore empty strings and None
-                    callback(line.rstrip())
-            else:
-                while True:
-                    line = stdout.readline()
-                    if not line:
-                        break
-                    callback(line.rstrip())
-        except (IOError, OSError):
-            # This seems to happen on some platforms, including TravisCI.
-            # It seems like it's ok to just let this pass here, you just
-            # won't get as nice feedback.
-            pass
-        if not timer.is_alive():
-            raise TimeoutError("subprocess running command '{}' timed out after {} seconds".format(cmd, timeout))
-        process.poll()
-
-    # we have returned from the subprocess cancel the timer if it is running
-    timer.cancel()
-
-    return process.returncode
+    returncode = loop.run_until_complete(run_command(cmd, callback, timeout=timeout))
+    if not timer.is_alive():
+        raise TimeoutError("subprocess running command '{}' timed out after {} seconds".format(cmd, timeout))
+    else:
+        timer.cancel()
+    print(returncode)
+    return returncode
 
 
 def tests_pass(config):
