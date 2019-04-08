@@ -17,6 +17,7 @@ from threading import Timer
 from time import time
 
 import click
+import psutil as psutil
 from glob2 import glob
 
 from mutmut import mutate_file, Context, list_mutations, __version__, \
@@ -456,7 +457,8 @@ def popen_streaming_output(cmd, callback, timeout=None):
         process = subprocess.Popen(
             shlex.split(cmd),
             stdout=subprocess.PIPE,
-            stderr=subprocess.PIPE
+            stderr=subprocess.PIPE,
+            shell=True, bufsize=1, universal_newlines=True,
         )
         stdout = process.stdout
     else:
@@ -471,10 +473,9 @@ def popen_streaming_output(cmd, callback, timeout=None):
 
     def kill(process_):
         """Kill the specified process on Timer completion"""
-        try:
-            process_.kill()
-        except OSError:
-            pass
+        process = psutil.Process(process_.pid)
+        for proc in process.children(recursive=True):
+            proc.kill()
 
     # python 2-3 agnostic process timer
     timer = Timer(timeout, kill, [process])
@@ -484,12 +485,13 @@ def popen_streaming_output(cmd, callback, timeout=None):
     while process.returncode is None:
         try:
             if os.name == 'nt':  # pragma: no cover
-                line = stdout.readline()
-                # windows gives readline() raw stdout as a b''
-                # need to decode it
-                line = line.decode("utf-8")
-                if line:  # ignore empty strings and None
-                    callback(line.rstrip())
+                for line in iter(process.stdout.readline, ''):
+                    # windows gives readline() raw stdout as a b''
+                    # need to decode it
+                    if isinstance(line, bytes):
+                        line = line.decode("utf-8")
+                    if line:  # ignore empty strings and None
+                        callback(line.rstrip())
             else:
                 while True:
                     line = stdout.readline()
@@ -501,10 +503,10 @@ def popen_streaming_output(cmd, callback, timeout=None):
             # It seems like it's ok to just let this pass here, you just
             # won't get as nice feedback.
             pass
-        if not timer.is_alive():
-            raise TimeoutError("subprocess running command '{}' timed out after {} seconds".format(cmd, timeout))
-        process.poll()
 
+        process.poll()
+    if not timer.is_alive():
+        raise TimeoutError("subprocess running command '{}' timed out after {} seconds".format(cmd, timeout))
     # we have returned from the subprocess cancel the timer if it is running
     timer.cancel()
 
