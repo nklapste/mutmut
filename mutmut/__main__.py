@@ -29,29 +29,6 @@ from mutmut.cache import register_mutants, update_mutant_status, \
 spinner = itertools.cycle('⠋⠙⠹⠸⠼⠴⠦⠧⠇⠏')
 
 
-# decorator
-def config_from_setup_cfg(**defaults):
-    def decorator(f):
-        @wraps(f)
-        def wrapper(*args, **kwargs):
-            config_parser = ConfigParser()
-            config_parser.read('setup.cfg')
-
-            def s(key, default):
-                try:
-                    return config_parser.get('mutmut', key)
-                except (NoOptionError, NoSectionError):
-                    return default
-
-            for k in list(kwargs.keys()):
-                if not kwargs[k]:
-                    kwargs[k] = s(k, defaults.get(k))
-            f(*args, **kwargs)
-
-        return wrapper
-    return decorator
-
-
 def status_printer():
     """Manage the printing and in-place updating of a line of characters
 
@@ -165,63 +142,151 @@ class Config(object):
 DEFAULT_TESTS_DIR = 'tests/:test/'
 
 
-@click.command(context_settings=dict(help_option_names=['-h', '--help']))
-@click.argument('command', nargs=1, required=False)
-@click.argument('argument', nargs=1, required=False)
-@click.argument('argument2', nargs=1, required=False)
-@click.option('--paths-to-mutate', type=click.STRING)
-@click.option('--paths-to-exclude', type=click.STRING, required=False)
-@click.option('--backup/--no-backup', default=False)
-@click.option('--runner')
-@click.option('--use-coverage', is_flag=True, default=False)
-@click.option('--use-patch-file', help='Only mutate lines added/changed in the given patch file')
-@click.option('--tests-dir')
-@click.option('-m', '--test-time-multiplier', default=2.0, type=float)
-@click.option('-b', '--test-time-base', default=0.0, type=float)
-@click.option('-s', '--swallow-output', help='turn off output capture', is_flag=True)
-@click.option('--dict-synonyms')
-@click.option('--cache-only', is_flag=True, default=False)
-@click.option('--version', is_flag=True, default=False)
-@click.option('--suspicious-policy', type=click.Choice(['ignore', 'skipped', 'error', 'failure']), default='ignore')
-@click.option('--untested-policy', type=click.Choice(['ignore', 'skipped', 'error', 'failure']), default='ignore')
-@click.option('--pre-mutation')
-@click.option('--post-mutation')
-@config_from_setup_cfg(
-    dict_synonyms='',
-    paths_to_exclude='',
-    runner='python -m pytest -x',
-    tests_dir=DEFAULT_TESTS_DIR,
-    pre_mutation=None,
-    post_mutation=None,
-    use_patch_file=None,
-)
-def climain(command, argument, argument2, paths_to_mutate, backup, runner, tests_dir,
-            test_time_multiplier, test_time_base,
-            swallow_output, use_coverage, dict_synonyms, cache_only, version,
-            suspicious_policy, untested_policy, pre_mutation, post_mutation,
-            use_patch_file, paths_to_exclude):
-    """
-commands:\n
-    run [mutation id]\n
-        Runs mutmut. You probably want to start with just trying this. If you supply a mutation ID mutmut will check just this mutant.\n
-    results\n
-        Print the results.\n
-    apply [mutation id]\n
-        Apply a mutation on disk.\n
-    show [mutation id]\n
-        Show a mutation diff.\n
-    junitxml\n
-        Show a mutation diff with junitxml format.
-    """
-    if test_time_base is None:  # click sets the default=0.0 to None
-        test_time_base = 0.0
-    if test_time_multiplier is None:  # click sets the default=0.0 to None
-        test_time_multiplier = 0.0
-    sys.exit(main(command, argument, argument2, paths_to_mutate, backup, runner,
-                  tests_dir, test_time_multiplier, test_time_base,
-                  swallow_output, use_coverage, dict_synonyms, cache_only,
-                  version, suspicious_policy, untested_policy, pre_mutation,
-                  post_mutation, use_patch_file, paths_to_exclude))
+import argparse
+def get_argparser():
+    parser = argparse.ArgumentParser(
+        formatter_class=argparse.ArgumentDefaultsHelpFormatter,
+    )
+    subparsers = parser.add_subparsers(help='command')
+
+    run_parser = subparsers.add_parser(
+        "run",
+        help='Runs mutmut. ')
+    run_parser.add_argument(
+        "--mutant-id",
+        help="if specified only this mutant will be tested."
+    )
+
+    results_parser = subparsers.add_parser(
+        "results",
+        help='Print the cached mutmut results.'
+    )
+
+    apply_parser = subparsers.add_parser(
+        "apply",
+        help='Apply a mutation on disk.'
+    )
+    apply_parser.add_argument("mutant_id")
+
+    show_parser = subparsers.add_parser("show", help='show a mutation diff.')
+    group = show_parser.add_argument_group(title="Logging")
+    show_parser_group = group.add_mutually_exclusive_group()
+    show_parser_group.add_argument("--mutant-id",  help="if specified only this mutant will be tested.")
+    show_parser_group.add_argument("--all")
+    show_parser.add_argument("--show-diffs")
+    show_parser.add_argument("--show-only-file")
+
+    junitxml_parser = subparsers.add_parser("junitxml", help='show a mutation diff as a junitxml report.')
+
+    # a_parser.add_argument("something", choices=['a1', 'a2'])
+    parser.add_argument("--paths-to-mutate", dest="paths_to_mutate")
+    parser.add_argument("--paths-to-exclude", dest="paths_to_exclude")
+    parser.add_argument("--no-backup", action="store_false")
+    parser.add_argument(
+        "--runner",
+        default="python -m pytest -x",
+        help="test runner command to invoke and test mutants with."
+    )
+
+    group = parser.add_argument_group("Mutant Exclusion")
+    mutant_exclusion_me = group.add_mutually_exclusive_group()
+    mutant_exclusion_me.add_argument(
+        "--use-coverage",
+        dest="use_coverage",
+        action="store_true",
+        help='only mutate lines hit in the .coverage report.'
+    )
+    mutant_exclusion_me.add_argument(
+        "--use-patch-file",
+        dest="use_patch_file",
+        help='only mutate lines added/changed in the given patch file.'
+    )
+
+    parser.add_argument(
+        "--tests-dir",
+        dest="tests_dir"
+    )
+    parser.add_argument(
+        "-m",
+        "--test-time-multiplier",
+        dest="test_time_multiplier",
+        type=float,
+        default=2.0,
+        help="multiple of the initial test run time that must pass before "
+             "timing out a mutation test run"
+    )
+    parser.add_argument(
+        "-b",
+        "--test-time-base",
+        dest="test_time_base",
+        type=float,
+        default=0.0,
+        help="additional base time that must pass before timing out a "
+             "mutation test run."
+    )
+    # TODO: wack
+    parser.add_argument(
+        "-s",
+        "--swallow-output",
+        dest="swallow_output",
+        action="store_true",
+        help="print test runner output during mutation tests."
+    )
+    parser.add_argument(
+        "--dict-synonyms",
+        dest="dict_synonyms"
+    )
+    parser.add_argument(
+        "--cache-only",
+        dest="cache_only",
+        action="store_true"
+    )
+    parser.add_argument(
+        "--version",
+        action="store_true",
+        help="display mutmut lib version."
+    )
+
+    policy_choices = ['ignore', 'skipped', 'error', 'failure']
+    parser.add_argument(
+        "--suspicious-policy",
+        dest="suspicious_policy",
+        choices=policy_choices,
+        default="ignore"
+    )
+    parser.add_argument(
+        '--untested-policy',
+        dest="untested_policy",
+        choices=policy_choices,
+        default="ignore"
+    )
+    parser.add_argument(
+        "--pre-mutation",
+        dest="pre_mutation",
+        help="command to execute before a mutation "
+             "has been applied and tested."
+    )
+    parser.add_argument(
+        "--post-mutation",
+        dest="post_mutation",
+        help="command to execute after a mutation "
+             "has been tested and reverted."
+    )
+    return parser
+
+
+def climain(argv=sys.argv[1:]):
+    parser = get_argparser()
+    parser.parse_args(argv)
+    # if test_time_base is None:  # click sets the default=0.0 to None
+    #     test_time_base = 0.0
+    # if test_time_multiplier is None:  # click sets the default=0.0 to None
+    #     test_time_multiplier = 0.0
+    # sys.exit(main(command, argument, argument2, paths_to_mutate, backup, runner,
+    #               tests_dir, test_time_multiplier, test_time_base,
+    #               swallow_output, use_coverage, dict_synonyms, cache_only,
+    #               version, suspicious_policy, untested_policy, pre_mutation,
+    #               post_mutation, use_patch_file, paths_to_exclude))
 
 
 def main(command, argument, argument2, paths_to_mutate, backup, runner, tests_dir,
@@ -241,16 +306,9 @@ def main(command, argument, argument2, paths_to_mutate, backup, runner, tests_di
     if use_coverage and use_patch_file:
         raise click.BadArgumentUsage("You can't combine --use-coverage and --use-patch")
 
-    valid_commands = ['run', 'results', 'apply', 'show', 'junitxml']
-    if command not in valid_commands:
-        raise click.BadArgumentUsage('{} is not a valid command, must be one of {}'.format(command, ', '.join(valid_commands)))
-
-    if command == 'results' and argument:
-        raise click.BadArgumentUsage('The {} command takes no arguments'.format(command))
-
     dict_synonyms = [x.strip() for x in dict_synonyms.split(',')]
 
-    if command in ('show', 'diff'):
+    if command in ('show'):
         if not argument:
             print_result_cache()
             return 0
