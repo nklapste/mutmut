@@ -43,6 +43,7 @@ def status_printer():
         sys.stdout.write(output)
         sys.stdout.flush()
         last_len[0] = len_s
+
     return p
 
 
@@ -134,13 +135,19 @@ class Config(object):
         self.pre_mutation = pre_mutation
 
     def print_progress(self):
-        print_status('{}/{}  🎉 {}  ⏰ {}  🤔 {}  🙁 {}'.format(self.progress, self.total, self.killed_mutants, self.surviving_mutants_timeout, self.suspicious_mutants, self.surviving_mutants))
+        print_status('{}/{}  🎉 {}  ⏰ {}  🤔 {}  🙁 {}'.format(self.progress,
+                                                               self.total,
+                                                               self.killed_mutants,
+                                                               self.surviving_mutants_timeout,
+                                                               self.suspicious_mutants,
+                                                               self.surviving_mutants))
 
 
 DEFAULT_TESTS_DIR = 'tests/:test/'
 
-
 import argparse
+
+
 def get_argparser():
     parser = argparse.ArgumentParser(
         formatter_class=argparse.ArgumentDefaultsHelpFormatter,
@@ -230,7 +237,8 @@ def get_argparser():
         action="store_true",
         help="print test runner output during mutation tests."
     )
-    run_parser_mutant_exclusion_me_group = run_parser.add_argument_group("Mutant Exclusion").add_mutually_exclusive_group()
+    run_parser_mutant_exclusion_me_group = run_parser.add_argument_group(
+        "Mutant Exclusion").add_mutually_exclusive_group()
     run_parser_mutant_exclusion_me_group.add_argument(
         "--use-coverage",
         dest="use_coverage",
@@ -304,72 +312,56 @@ def get_argparser():
     return parser
 
 
+def version_main():
+    print("mutmut version {}".format(__version__))
+    return 0
+
+
 def climain(argv=sys.argv[1:]):
     parser = get_argparser()
     args = parser.parse_args(argv)
     print(args)
     print(args.__dict__)
     if args.version:
-        print("mutmut version {}".format(__version__))
+        return version_main()
+
     # if test_time_base is None:  # click sets the default=0.0 to None
     #     test_time_base = 0.0
     # if test_time_multiplier is None:  # click sets the default=0.0 to None
     #     test_time_multiplier = 0.0
     sys.exit(main(
-        args.command, argument, argument2,
+        args.command,
         args.paths_to_mutate,
         not args.no_backup,
         args.runner,
-      args.tests_dir,
+        args.tests_dir,
         args.test_time_multiplier,
         args.test_time_base,
-                  args.swallow_output,
-                  args.use_coverage,
-                  args.dict_synonyms,
-                  args.cache_only,
-                  args.suspicious_policy,
-                  args.untested_policy,
-                  args.pre_mutation,
-                  args.post_mutation,
-                  args.use_patch_file, args.paths_to_exclude, args.show_only_file))
+        args.swallow_output,
+        args.use_coverage,
+        args.dict_synonyms,
+        args.cache_only,
+        args.suspicious_policy,
+        args.untested_policy,
+        args.pre_mutation,
+        args.post_mutation,
+        args.use_patch_file, args.paths_to_exclude, args.show_only_file))
 
 
-def main(command, argument, paths_to_mutate, backup, runner, tests_dir,
-         test_time_multiplier, test_time_base,
-         swallow_output, use_coverage, dict_synonyms, cache_only,
-         suspicious_policy, untested_policy, pre_mutation, post_mutation,
-         use_patch_file, paths_to_exclude, show_only_file):
-    """return exit code, after performing an mutation test run.
-
-    :return: the exit code from executing the mutation tests
-    :rtype: int
-    """
-
-    dict_synonyms = [x.strip() for x in dict_synonyms.split(',')]
-    if command in ('show'):
-        if not argument:
-            print_result_cache()
-            return 0
-
-        if argument == 'all':
-            print_result_cache(show_diffs=True, dict_synonyms=dict_synonyms, print_only_filename=show_only_file)
-            return 0
-
-        print(get_unified_diff(argument, dict_synonyms))
+def show_main(dict_synonyms, show_only_file, mutant_id=None):
+    if not mutant_id:
+        print_result_cache(show_diffs=True, dict_synonyms=dict_synonyms,
+                           print_only_filename=show_only_file)
         return 0
+    print(get_unified_diff(mutant_id, dict_synonyms))
+    return 0
 
-    if command == 'results':
-        print_result_cache()
-        return 0
 
-    if command == 'junitxml':
-        print_result_cache_junitxml(dict_synonyms, suspicious_policy, untested_policy)
-        return 0
-
-    if command == 'apply':
-        do_apply(argument, dict_synonyms, backup)
-        return 0
-
+def run_main(paths_to_mutate, backup, runner, tests_dir,
+             test_time_multiplier, test_time_base,
+             swallow_output, use_coverage, dict_synonyms, cache_only,
+             pre_mutation, post_mutation,
+             use_patch_file, paths_to_exclude, mutant_id=None):
     if paths_to_mutate is None:
         paths_to_mutate = guess_paths_to_mutate()
 
@@ -377,7 +369,8 @@ def main(command, argument, paths_to_mutate, backup, runner, tests_dir,
         paths_to_mutate = [x.strip() for x in paths_to_mutate.split(',')]
 
     if not paths_to_mutate:
-        raise click.BadOptionUsage('--paths-to-mutate', 'You must specify a list of paths to mutate. Either as a command line argument, or by setting paths_to_mutate under the section [mutmut] in setup.cfg')
+        raise click.BadOptionUsage('--paths-to-mutate',
+                                   'You must specify a list of paths to mutate. Either as a command line argument, or by setting paths_to_mutate under the section [mutmut] in setup.cfg')
 
     tests_dirs = []
     for p in tests_dir.split(':'):
@@ -388,26 +381,27 @@ def main(command, argument, paths_to_mutate, backup, runner, tests_dir,
             tests_dirs.extend(glob(p + '/**/' + pt, recursive=True))
     del tests_dir
 
-    os.environ['PYTHONDONTWRITEBYTECODE'] = '1'  # stop python from creating .pyc files
+    os.environ[
+        'PYTHONDONTWRITEBYTECODE'] = '1'  # stop python from creating .pyc files
 
     print("""
-- Mutation testing starting -
+    - Mutation testing starting -
 
-These are the steps:
-1. A full test suite run will be made to make sure we
-   can run the tests successfully and we know how long
-   it takes (to detect infinite loops for example)
-2. Mutants will be generated and checked
+    These are the steps:
+    1. A full test suite run will be made to make sure we
+       can run the tests successfully and we know how long
+       it takes (to detect infinite loops for example)
+    2. Mutants will be generated and checked
 
-Results are stored in .mutmut-cache.
-Print found mutants with `mutmut results`.
+    Results are stored in .mutmut-cache.
+    Print found mutants with `mutmut results`.
 
-Legend for output:
-🎉 Killed mutants.   The goal is for everything to end up in this bucket.
-⏰ Timeout.          Test suite took 10 times as long as the baseline so were killed.
-🤔 Suspicious.       Tests took a long time, but not long enough to be fatal.
-🙁 Survived.         This means your tests needs to be expanded.
-""")
+    Legend for output:
+    🎉 Killed mutants.   The goal is for everything to end up in this bucket.
+    ⏰ Timeout.          Test suite took 10 times as long as the baseline so were killed.
+    🤔 Suspicious.       Tests took a long time, but not long enough to be fatal.
+    🙁 Survived.         This means your tests needs to be expanded.
+    """)
     using_testmon = '--testmon' in runner
     baseline_time_elapsed = time_test_suite(
         swallow_output=not swallow_output,
@@ -418,11 +412,9 @@ Legend for output:
     if using_testmon:
         copy('.testmondata', '.testmondata-initial')
 
-    if use_coverage and use_patch_file:
-        raise click.BadArgumentUsage("You can't combine --use-coverage and --use-patch")
-
     if use_coverage and not exists('.coverage'):
-        raise FileNotFoundError('No .coverage file found. You must generate a coverage file to use this feature.')
+        raise FileNotFoundError(
+            'No .coverage file found. You must generate a coverage file to use this feature.')
 
     # if we're running in a mode with externally whitelisted lines
     if use_coverage or use_patch_file:
@@ -439,7 +431,8 @@ Legend for output:
                 covered_lines = covered_lines_by_filename[context.filename]
             except KeyError:
                 if coverage_data is not None:
-                    covered_lines = coverage_data.lines(os.path.abspath(context.filename))
+                    covered_lines = coverage_data.lines(
+                        os.path.abspath(context.filename))
                     covered_lines_by_filename[context.filename] = covered_lines
                 else:
                     covered_lines = None
@@ -456,8 +449,8 @@ Legend for output:
             return False
 
     paths_to_exclude = [path.strip() for path in paths_to_exclude.split(',')]
-    if argument:
-        mutations_by_file = get_mutations_by_file_from_cache(argument)
+    if mutant_id:
+        mutations_by_file = get_mutations_by_file_from_cache(mutant_id)
     else:
         mutations_by_file = gen_mutations_by_file(
             paths_to_mutate=paths_to_mutate,
@@ -499,6 +492,54 @@ Legend for output:
         print()  # make sure we end the output with a newline
 
 
+def main(command, paths_to_mutate, backup, runner, tests_dir,
+         test_time_multiplier, test_time_base,
+         swallow_output, use_coverage, dict_synonyms, cache_only,
+         suspicious_policy, untested_policy, pre_mutation, post_mutation,
+         use_patch_file, paths_to_exclude, show_only_file, mutant_id=None):
+    """return exit code, after performing an mutation test run.
+
+    :return: the exit code from executing the mutation tests
+    :rtype: int
+    """
+
+    dict_synonyms = [x.strip() for x in dict_synonyms.split(',')]
+    # TODO: replace command
+    if command == 'show':
+        return show_main(dict_synonyms, show_only_file, mutant_id)
+
+    if command == 'results':
+        return results_main()
+
+    if command == 'junitxml':
+        return junitxml_main(dict_synonyms, suspicious_policy, untested_policy)
+
+    if command == 'apply':
+        return apply_main(mutant_id, dict_synonyms, backup)
+
+    return run_main(paths_to_mutate, backup, runner, tests_dir,
+             test_time_multiplier, test_time_base,
+             swallow_output, use_coverage, dict_synonyms, cache_only,
+             pre_mutation, post_mutation,
+             use_patch_file, paths_to_exclude, mutant_id=None)
+
+
+def junitxml_main(dict_synonyms, suspicious_policy, untested_policy):
+    print_result_cache_junitxml(dict_synonyms, suspicious_policy,
+                                untested_policy)
+    return 0
+
+
+def results_main():
+    print_result_cache()
+    return 0
+
+
+def apply_main(mutant_id, dict_synonyms, backup):
+    do_apply(mutant_id, dict_synonyms, backup)
+    return 0
+
+
 def get_mutations_by_file_from_cache(mutation_pk):
     filename, mutation_id = filename_and_mutation_id_from_pk(int(mutation_pk))
     return {filename: [mutation_id]}
@@ -508,7 +549,8 @@ def gen_mutations_by_file(paths_to_mutate, tests_dirs, paths_to_exclude,
                           dict_synonyms, exclude_check=lambda x: False):
     mutations_by_file = {}
     for path in paths_to_mutate:
-        for filename in python_source_files(path, tests_dirs, paths_to_exclude):
+        for filename in python_source_files(path, tests_dirs,
+                                            paths_to_exclude):
             update_line_numbers(filename)
             with open(filename) as f:
                 source = f.read()
@@ -598,7 +640,9 @@ def popen_streaming_output(cmd, callback, timeout=None):
             # won't get as nice feedback.
             pass
         if not timer.is_alive():
-            raise TimeoutError("subprocess running command '{}' timed out after {} seconds".format(cmd, timeout))
+            raise TimeoutError(
+                "subprocess running command '{}' timed out after {} seconds".format(
+                    cmd, timeout))
         process.poll()
 
     # we have returned from the subprocess cancel the timer if it is running
@@ -621,7 +665,8 @@ def tests_pass(config):
             print(line)
         config.print_progress()
 
-    returncode = popen_streaming_output(config.test_command, feedback, timeout=config.baseline_time_elapsed * 10)
+    returncode = popen_streaming_output(config.test_command, feedback,
+                                        timeout=config.baseline_time_elapsed * 10)
     return returncode == 0 or (config.using_testmon and returncode == 5)
 
 
@@ -641,7 +686,8 @@ def run_mutation(config, filename, mutation_id):
         config=config,
     )
 
-    cached_status = cached_mutation_status(filename, mutation_id, config.hash_of_tests)
+    cached_status = cached_mutation_status(filename, mutation_id,
+                                           config.hash_of_tests)
     if cached_status == BAD_SURVIVED:
         config.surviving_mutants += 1
     elif cached_status == BAD_TIMEOUT:
@@ -657,7 +703,8 @@ def run_mutation(config, filename, mutation_id):
         return cached_status
 
     if config.pre_mutation:
-        result = subprocess.check_output(config.pre_mutation, shell=True).decode().strip()
+        result = subprocess.check_output(config.pre_mutation,
+                                         shell=True).decode().strip()
         if result:
             print(result)
 
@@ -674,7 +721,8 @@ def run_mutation(config, filename, mutation_id):
             return BAD_TIMEOUT
 
         time_elapsed = time() - start
-        if not survived and time_elapsed > config.test_time_base + (config.baseline_time_elapsed * config.test_time_multipler):
+        if not survived and time_elapsed > config.test_time_base + (
+                config.baseline_time_elapsed * config.test_time_multipler):
             config.suspicious_mutants += 1
             return OK_SUSPICIOUS
 
@@ -688,7 +736,8 @@ def run_mutation(config, filename, mutation_id):
         move(filename + '.bak', filename)
 
         if config.post_mutation:
-            result = subprocess.check_output(config.post_mutation, shell=True).decode().strip()
+            result = subprocess.check_output(config.post_mutation,
+                                             shell=True).decode().strip()
             if result:
                 print(result)
 
@@ -702,7 +751,8 @@ def run_mutation_tests(config, mutations_by_file):
     for file, mutations in mutations_by_file.items():
         for mutation_id in mutations:
             status = run_mutation(config, file, mutation_id)
-            update_mutant_status(file, mutation_id, status, config.hash_of_tests)
+            update_mutant_status(file, mutation_id, status,
+                                 config.hash_of_tests)
             config.progress += 1
             config.print_progress()
 
@@ -715,7 +765,8 @@ def read_coverage_data():
         # noinspection PyPackageRequirements,PyUnresolvedReferences
         from coverage import Coverage
     except ImportError as e:
-        raise ImportError('The --use-coverage feature requires the coverage library. Run "pip install coverage"') from e
+        raise ImportError(
+            'The --use-coverage feature requires the coverage library. Run "pip install coverage"') from e
     cov = Coverage('.coverage')
     cov.load()
     return cov.get_data()
@@ -726,12 +777,15 @@ def read_patch_data(patch_file_path):
         # noinspection PyPackageRequirements
         import whatthepatch
     except ImportError as e:
-        raise ImportError('The --use-patch feature requires the whatthepatch library. Run "pip install whatthepatch"') from e
+        raise ImportError(
+            'The --use-patch feature requires the whatthepatch library. Run "pip install whatthepatch"') from e
     with open(patch_file_path) as f:
         diffs = whatthepatch.parse_patch(f.read())
 
     return {
-        diff.header.new_path: {line_number for old_line_number, line_number, text, *_ in diff.changes if old_line_number is None}
+        diff.header.new_path: {line_number for
+                               old_line_number, line_number, text, *_ in
+                               diff.changes if old_line_number is None}
         for diff in diffs
     }
 
@@ -755,7 +809,8 @@ def time_test_suite(swallow_output, test_command, using_testmon):
     """
     cached_time = cached_test_time()
     if cached_time is not None:
-        print('1. Using cached time for baseline tests, to run baseline again delete the cache file')
+        print(
+            '1. Using cached time for baseline tests, to run baseline again delete the cache file')
         return cached_time
 
     print('1. Running tests without mutations')
@@ -774,7 +829,9 @@ def time_test_suite(swallow_output, test_command, using_testmon):
     if returncode == 0 or (using_testmon and returncode == 5):
         baseline_time_elapsed = time() - start_time
     else:
-        raise RuntimeError("Tests don't run cleanly without mutations. Test command was: {}\n\nOutput:\n\n{}".format(test_command, '\n'.join(output)))
+        raise RuntimeError(
+            "Tests don't run cleanly without mutations. Test command was: {}\n\nOutput:\n\n{}".format(
+                test_command, '\n'.join(output)))
 
     print('Done')
 
@@ -804,10 +861,13 @@ def python_source_files(path, tests_dirs, paths_to_exclude=None):
     if isdir(path):
         for root, dirs, files in os.walk(path, topdown=True):
             for exclude_pattern in paths_to_exclude:
-                dirs[:] = [d for d in dirs if not fnmatch.fnmatch(d, exclude_pattern)]
-                files[:] = [f for f in files if not fnmatch.fnmatch(f, exclude_pattern)]
+                dirs[:] = [d for d in dirs if
+                           not fnmatch.fnmatch(d, exclude_pattern)]
+                files[:] = [f for f in files if
+                            not fnmatch.fnmatch(f, exclude_pattern)]
 
-            dirs[:] = [d for d in dirs if os.path.join(root, d) not in tests_dirs]
+            dirs[:] = [d for d in dirs if
+                       os.path.join(root, d) not in tests_dirs]
             for filename in files:
                 if filename.endswith('.py'):
                     yield os.path.join(root, filename)
