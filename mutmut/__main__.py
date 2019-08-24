@@ -8,8 +8,6 @@ import shlex
 import subprocess
 import sys
 import traceback
-from configparser import ConfigParser, NoOptionError, NoSectionError
-from functools import wraps
 from io import open
 from os.path import isdir, exists
 from shutil import move, copy
@@ -147,66 +145,54 @@ def get_argparser():
     parser = argparse.ArgumentParser(
         formatter_class=argparse.ArgumentDefaultsHelpFormatter,
     )
-    subparsers = parser.add_subparsers(help='command')
+
+    parser.add_argument(
+        "--version",
+        action="store_true",
+        help="display mutmut lib version."
+    )
+    parser.add_argument(
+        "--no-backup",
+        dest="no_backup",
+        action="store_true",
+        help="WARNING DANGEROUS: disable creating backups of source files "
+             "before applying mutants."
+    )
+    parser.add_argument(
+        "--dict-synonyms",
+        dest="dict_synonyms"
+    )
+
+    subparsers = parser.add_subparsers(title='command')
 
     run_parser = subparsers.add_parser(
         "run",
-        help='Runs mutmut. ')
+        help='generate and test mutants.'
+    )
+    run_parser.add_argument(
+        "--paths-to-mutate",
+        dest="paths_to_mutate",
+        help="paths to search for python source code to mutate."
+    )
+    run_parser.add_argument(
+        "--paths-to-exclude",
+        dest="paths_to_exclude",
+        help="paths to exclude searching for python source code to mutate."
+    )
+    run_parser.add_argument(
+        "--tests-dir",
+        dest="tests_dir"
+    )
     run_parser.add_argument(
         "--mutant-id",
         help="if specified only this mutant will be tested."
     )
-
-    results_parser = subparsers.add_parser(
-        "results",
-        help='Print the cached mutmut results.'
-    )
-
-    apply_parser = subparsers.add_parser(
-        "apply",
-        help='Apply a mutation on disk.'
-    )
-    apply_parser.add_argument("mutant_id")
-
-    show_parser = subparsers.add_parser("show", help='show a mutation diff.')
-    group = show_parser.add_argument_group(title="Logging")
-    show_parser_group = group.add_mutually_exclusive_group()
-    show_parser_group.add_argument("--mutant-id",  help="if specified only this mutant will be tested.")
-    show_parser_group.add_argument("--all")
-    show_parser.add_argument("--show-diffs")
-    show_parser.add_argument("--show-only-file")
-
-    junitxml_parser = subparsers.add_parser("junitxml", help='show a mutation diff as a junitxml report.')
-
-    # a_parser.add_argument("something", choices=['a1', 'a2'])
-    parser.add_argument("--paths-to-mutate", dest="paths_to_mutate")
-    parser.add_argument("--paths-to-exclude", dest="paths_to_exclude")
-    parser.add_argument("--no-backup", action="store_false")
-    parser.add_argument(
+    run_parser.add_argument(
         "--runner",
         default="python -m pytest -x",
         help="test runner command to invoke and test mutants with."
     )
-
-    group = parser.add_argument_group("Mutant Exclusion")
-    mutant_exclusion_me = group.add_mutually_exclusive_group()
-    mutant_exclusion_me.add_argument(
-        "--use-coverage",
-        dest="use_coverage",
-        action="store_true",
-        help='only mutate lines hit in the .coverage report.'
-    )
-    mutant_exclusion_me.add_argument(
-        "--use-patch-file",
-        dest="use_patch_file",
-        help='only mutate lines added/changed in the given patch file.'
-    )
-
-    parser.add_argument(
-        "--tests-dir",
-        dest="tests_dir"
-    )
-    parser.add_argument(
+    run_parser.add_argument(
         "-m",
         "--test-time-multiplier",
         dest="test_time_multiplier",
@@ -215,7 +201,7 @@ def get_argparser():
         help="multiple of the initial test run time that must pass before "
              "timing out a mutation test run"
     )
-    parser.add_argument(
+    run_parser.add_argument(
         "-b",
         "--test-time-base",
         dest="test_time_base",
@@ -224,104 +210,153 @@ def get_argparser():
         help="additional base time that must pass before timing out a "
              "mutation test run."
     )
+    run_parser.add_argument(
+        "--pre-mutation",
+        dest="pre_mutation",
+        help="command to execute before a mutation "
+             "has been applied and tested."
+    )
+    run_parser.add_argument(
+        "--post-mutation",
+        dest="post_mutation",
+        help="command to execute after a mutation "
+             "has been tested and reverted."
+    )
     # TODO: wack
-    parser.add_argument(
+    run_parser.add_argument(
         "-s",
         "--swallow-output",
         dest="swallow_output",
         action="store_true",
         help="print test runner output during mutation tests."
     )
-    parser.add_argument(
-        "--dict-synonyms",
-        dest="dict_synonyms"
+    run_parser_mutant_exclusion_me_group = run_parser.add_argument_group("Mutant Exclusion").add_mutually_exclusive_group()
+    run_parser_mutant_exclusion_me_group.add_argument(
+        "--use-coverage",
+        dest="use_coverage",
+        action="store_true",
+        help='only mutate lines hit in the .coverage report.'
     )
-    parser.add_argument(
+    run_parser_mutant_exclusion_me_group.add_argument(
+        "--use-patch-file",
+        dest="use_patch_file",
+        help='only mutate lines added/changed in the given patch file.'
+    )
+    # TODO: doc
+    run_parser.add_argument(
         "--cache-only",
         dest="cache_only",
-        action="store_true"
-    )
-    parser.add_argument(
-        "--version",
         action="store_true",
-        help="display mutmut lib version."
     )
 
+    results_parser = subparsers.add_parser(
+        "results",
+        help='print cached mutmut results.'
+    )
+
+    apply_parser = subparsers.add_parser(
+        "apply",
+        help='apply a mutation on disk.'
+    )
+    apply_parser.add_argument(
+        "mutant_id",
+        help="id of the mutant to apply."
+    )
+
+    show_parser = subparsers.add_parser(
+        "show",
+        help="show a mutation's diff."
+    )
+    show_parser.add_argument(
+        "--show-diffs"
+    )
+    show_parser.add_argument(
+        "--show-only-file",
+        dest="show_only_file"
+    )
+    show_parser_group = show_parser.add_argument_group().add_mutually_exclusive_group()
+    show_parser_group.add_argument(
+        "--mutant-id",
+        help="if specified only this mutant's diffs will be shown."
+    )
+    show_parser_group.add_argument(
+        "--all"
+    )
+
+    junitxml_parser = subparsers.add_parser(
+        "junitxml",
+        help='show mutation diffs as a junitxml report.'
+    )
     policy_choices = ['ignore', 'skipped', 'error', 'failure']
-    parser.add_argument(
+    junitxml_parser.add_argument(
         "--suspicious-policy",
         dest="suspicious_policy",
         choices=policy_choices,
         default="ignore"
     )
-    parser.add_argument(
+    junitxml_parser.add_argument(
         '--untested-policy',
         dest="untested_policy",
         choices=policy_choices,
         default="ignore"
     )
-    parser.add_argument(
-        "--pre-mutation",
-        dest="pre_mutation",
-        help="command to execute before a mutation "
-             "has been applied and tested."
-    )
-    parser.add_argument(
-        "--post-mutation",
-        dest="post_mutation",
-        help="command to execute after a mutation "
-             "has been tested and reverted."
-    )
+
     return parser
 
 
 def climain(argv=sys.argv[1:]):
     parser = get_argparser()
-    parser.parse_args(argv)
+    args = parser.parse_args(argv)
+    print(args)
+    print(args.__dict__)
+    if args.version:
+        print("mutmut version {}".format(__version__))
     # if test_time_base is None:  # click sets the default=0.0 to None
     #     test_time_base = 0.0
     # if test_time_multiplier is None:  # click sets the default=0.0 to None
     #     test_time_multiplier = 0.0
-    # sys.exit(main(command, argument, argument2, paths_to_mutate, backup, runner,
-    #               tests_dir, test_time_multiplier, test_time_base,
-    #               swallow_output, use_coverage, dict_synonyms, cache_only,
-    #               version, suspicious_policy, untested_policy, pre_mutation,
-    #               post_mutation, use_patch_file, paths_to_exclude))
+    sys.exit(main(
+        args.command, argument, argument2,
+        args.paths_to_mutate,
+        not args.no_backup,
+        args.runner,
+      args.tests_dir,
+        args.test_time_multiplier,
+        args.test_time_base,
+                  args.swallow_output,
+                  args.use_coverage,
+                  args.dict_synonyms,
+                  args.cache_only,
+                  args.suspicious_policy,
+                  args.untested_policy,
+                  args.pre_mutation,
+                  args.post_mutation,
+                  args.use_patch_file, args.paths_to_exclude, args.show_only_file))
 
 
-def main(command, argument, argument2, paths_to_mutate, backup, runner, tests_dir,
+def main(command, argument, paths_to_mutate, backup, runner, tests_dir,
          test_time_multiplier, test_time_base,
-         swallow_output, use_coverage, dict_synonyms, cache_only, version,
+         swallow_output, use_coverage, dict_synonyms, cache_only,
          suspicious_policy, untested_policy, pre_mutation, post_mutation,
-         use_patch_file, paths_to_exclude):
+         use_patch_file, paths_to_exclude, show_only_file):
     """return exit code, after performing an mutation test run.
 
     :return: the exit code from executing the mutation tests
     :rtype: int
     """
-    if version:
-        print("mutmut version {}".format(__version__))
-        return 0
-
-    if use_coverage and use_patch_file:
-        raise click.BadArgumentUsage("You can't combine --use-coverage and --use-patch")
 
     dict_synonyms = [x.strip() for x in dict_synonyms.split(',')]
-
     if command in ('show'):
         if not argument:
             print_result_cache()
             return 0
 
         if argument == 'all':
-            print_result_cache(show_diffs=True, dict_synonyms=dict_synonyms, print_only_filename=argument2)
+            print_result_cache(show_diffs=True, dict_synonyms=dict_synonyms, print_only_filename=show_only_file)
             return 0
 
         print(get_unified_diff(argument, dict_synonyms))
         return 0
-
-    if use_coverage and not exists('.coverage'):
-        raise FileNotFoundError('No .coverage file found. You must generate a coverage file to use this feature.')
 
     if command == 'results':
         print_result_cache()
@@ -355,8 +390,6 @@ def main(command, argument, argument2, paths_to_mutate, backup, runner, tests_di
 
     os.environ['PYTHONDONTWRITEBYTECODE'] = '1'  # stop python from creating .pyc files
 
-    using_testmon = '--testmon' in runner
-
     print("""
 - Mutation testing starting -
 
@@ -375,6 +408,7 @@ Legend for output:
 🤔 Suspicious.       Tests took a long time, but not long enough to be fatal.
 🙁 Survived.         This means your tests needs to be expanded.
 """)
+    using_testmon = '--testmon' in runner
     baseline_time_elapsed = time_test_suite(
         swallow_output=not swallow_output,
         test_command=runner,
@@ -383,6 +417,12 @@ Legend for output:
 
     if using_testmon:
         copy('.testmondata', '.testmondata-initial')
+
+    if use_coverage and use_patch_file:
+        raise click.BadArgumentUsage("You can't combine --use-coverage and --use-patch")
+
+    if use_coverage and not exists('.coverage'):
+        raise FileNotFoundError('No .coverage file found. You must generate a coverage file to use this feature.')
 
     # if we're running in a mode with externally whitelisted lines
     if use_coverage or use_patch_file:
@@ -415,8 +455,6 @@ Legend for output:
             del context
             return False
 
-    if command != 'run':
-        raise click.BadArgumentUsage("Invalid command {}".format(command))
     paths_to_exclude = [path.strip() for path in paths_to_exclude.split(',')]
     if argument:
         mutations_by_file = get_mutations_by_file_from_cache(argument)
