@@ -343,7 +343,7 @@ def run_main(paths_to_mutate, backup, runner, test_paths,
              swallow_output, use_coverage, dict_synonyms, cache_only,
              pre_mutation, post_mutation,
              use_patch_file, paths_to_exclude, mutant_id=None):
-    if paths_to_mutate is None:
+    if not paths_to_mutate:
         paths_to_mutate = [guess_paths_to_mutate()]
     paths_to_mutate = [path.strip() for path in paths_to_mutate]
 
