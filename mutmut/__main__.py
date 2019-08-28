@@ -170,10 +170,14 @@ def get_argparser():
     parser.add_argument(
         "--dict-synonyms",
         dest="dict_synonyms",
-        nargs="*"
+        nargs="*",
+        default=[]
     )
 
-    subparsers = parser.add_subparsers(title='command', dest='command')
+    subparsers = parser.add_subparsers(
+        dest='command',
+        help='mutmut command to invoke.'
+    )
 
     run_parser = subparsers.add_parser(
         "run",
@@ -489,7 +493,7 @@ def main(argv=sys.argv[1:]):
     args = parser.parse_args(argv)
 
     backup = not args.no_backup
-    dict_synonyms = [x.strip() for x in args.dict_synonyms.split(',')]
+    dict_synonyms = [x.strip() for x in args.dict_synonyms]
     # TODO: replace command
     if args.command == 'show':
         return show_main(dict_synonyms, args.show_only_file, args.mutant_id)
