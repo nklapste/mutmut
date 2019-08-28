@@ -148,8 +148,8 @@ def print_result_cache(show_diffs=False, dict_synonyms=None, print_only_filename
     print_stuff('Untested', select(x for x in Mutant if x.status == UNTESTED))
 
 
-def get_unified_diff(argument, dict_synonyms, update_cache=True, source=None):
-    filename, mutation_id = filename_and_mutation_id_from_pk(argument)
+def get_unified_diff(mutant_pk, dict_synonyms, update_cache=True, source=None):
+    filename, mutation_id = filename_and_mutation_id_from_pk(mutant_pk)
 
     if update_cache:
         update_line_numbers(filename)

@@ -15,11 +15,10 @@ from shutil import move, copy
 from threading import Timer
 from time import time
 
-import click
 from glob2 import glob
 
 from mutmut import __version__ as mutmut_version
-from mutmut import mutate_file, Context, list_mutations, __version__, \
+from mutmut import mutate_file, Context, list_mutations, \
     BAD_TIMEOUT, OK_SUSPICIOUS, BAD_SURVIVED, OK_KILLED, UNTESTED
 from mutmut.cache import register_mutants, update_mutant_status, \
     print_result_cache, cached_mutation_status, hash_of_tests, \
@@ -145,9 +144,6 @@ class Config(object):
                                                                self.surviving_mutants))
 
 
-DEFAULT_TESTS_DIR = 'tests/:test/'
-
-
 def get_argparser():
     parser = argparse.ArgumentParser(
         description="Python mutation testing made easy.",
@@ -186,16 +182,22 @@ def get_argparser():
     run_parser.add_argument(
         "--paths-to-mutate",
         dest="paths_to_mutate",
-        help="paths to search for python source code to mutate."
+        help="paths to search for python source code to mutate.",
+        nargs="*",
+        default=[]
     )
     run_parser.add_argument(
         "--paths-to-exclude",
         dest="paths_to_exclude",
-        help="paths to exclude searching for python source code to mutate."
+        help="paths to exclude searching for python source code to mutate.",
+        nargs="*",
+        default=[],
     )
     run_parser.add_argument(
         "--tests-dir",
-        dest="tests_dir"
+        dest="tests_dir",
+        nargs="*",
+        default=["tests", "test"]
     )
     run_parser.add_argument(
         "--mutant-id",
@@ -244,8 +246,7 @@ def get_argparser():
         action="store_true",
         help="print test runner output during mutation tests."
     )
-    run_parser_mutant_exclusion_me_group = run_parser.add_argument_group(
-        "Mutant Exclusion").add_mutually_exclusive_group()
+    run_parser_mutant_exclusion_me_group = run_parser.add_argument_group("Mutant Exclusion").add_mutually_exclusive_group()
     run_parser_mutant_exclusion_me_group.add_argument(
         "--use-coverage",
         dest="use_coverage",
@@ -268,6 +269,13 @@ def get_argparser():
         "results",
         help='print cached mutmut results.'
     )
+    results_parser.add_argument(
+        "--show-diffs"
+    )
+    results_parser.add_argument(
+        "--show-only-file",
+        dest="show_only_file"
+    )
 
     apply_parser = subparsers.add_parser(
         "apply",
@@ -280,22 +288,11 @@ def get_argparser():
 
     show_parser = subparsers.add_parser(
         "show",
-        help="show a mutant"
+        help="show a mutant."
     )
     show_parser.add_argument(
-        "--show-diffs"
-    )
-    show_parser.add_argument(
-        "--show-only-file",
-        dest="show_only_file"
-    )
-    show_parser_group = show_parser.add_argument_group().add_mutually_exclusive_group()
-    show_parser_group.add_argument(
-        "--mutant-id",
-        help="if specified only this mutant will be shown."
-    )
-    show_parser_group.add_argument(
-        "--all"
+        "mutant_id",
+        help="id of the mutant to show."
     )
 
     junitxml_parser = subparsers.add_parser(
@@ -325,8 +322,9 @@ def junitxml_main(dict_synonyms, suspicious_policy, untested_policy):
     return 0
 
 
-def results_main():
-    print_result_cache()
+def results_main(show_diffs, dict_synonyms, show_only_file):
+    print_result_cache(show_diffs=show_diffs, dict_synonyms=dict_synonyms,
+                       print_only_filename=show_only_file)
     return 0
 
 
@@ -335,25 +333,19 @@ def apply_main(mutant_id, dict_synonyms, backup):
     return 0
 
 
-def show_main(dict_synonyms, show_only_file, mutant_id=None):
-    if not mutant_id:
-        print_result_cache(show_diffs=True, dict_synonyms=dict_synonyms,
-                           print_only_filename=show_only_file)
-        return 0
+def show_main(mutant_id, dict_synonyms):
     print(get_unified_diff(mutant_id, dict_synonyms))
     return 0
 
 
-def run_main(paths_to_mutate, backup, runner, tests_dir,
+def run_main(paths_to_mutate, backup, runner, test_paths,
              test_time_multiplier, test_time_base,
              swallow_output, use_coverage, dict_synonyms, cache_only,
              pre_mutation, post_mutation,
              use_patch_file, paths_to_exclude, mutant_id=None):
     if paths_to_mutate is None:
-        paths_to_mutate = guess_paths_to_mutate()
-
-    if not isinstance(paths_to_mutate, (list, tuple)):
-        paths_to_mutate = [x.strip() for x in paths_to_mutate.split(',')]
+        paths_to_mutate = [guess_paths_to_mutate()]
+    paths_to_mutate = [path.strip() for path in paths_to_mutate]
 
     if not paths_to_mutate:
         raise ValueError(
@@ -364,13 +356,12 @@ def run_main(paths_to_mutate, backup, runner, tests_dir,
         )
 
     tests_dirs = []
-    for p in tests_dir.split(':'):
-        tests_dirs.extend(glob(p, recursive=True))
+    for test_path in test_paths:
+        tests_dirs.extend(glob(test_path, recursive=True))
 
-    for p in paths_to_mutate:
-        for pt in tests_dir.split(':'):
-            tests_dirs.extend(glob(p + '/**/' + pt, recursive=True))
-    del tests_dir
+    for mutate_path in paths_to_mutate:
+        for pt in test_paths:
+            tests_dirs.extend(glob(mutate_path + '/**/' + pt, recursive=True))
 
     # stop python from creating .pyc files
     os.environ['PYTHONDONTWRITEBYTECODE'] = '1'
@@ -405,7 +396,9 @@ def run_main(paths_to_mutate, backup, runner, tests_dir,
 
     if use_coverage and not exists('.coverage'):
         raise FileNotFoundError(
-            'No .coverage file found. You must generate a coverage file to use this feature.')
+            'No .coverage file found. You must generate a coverage file to '
+            'use this feature.'
+        )
 
     # if we're running in a mode with externally whitelisted lines
     if use_coverage or use_patch_file:
@@ -439,7 +432,7 @@ def run_main(paths_to_mutate, backup, runner, tests_dir,
             del context
             return False
 
-    paths_to_exclude = [path.strip() for path in paths_to_exclude.split(',')]
+    paths_to_exclude = [path.strip() for path in paths_to_exclude]
     if mutant_id:
         mutations_by_file = get_mutations_by_file_from_cache(mutant_id)
     else:
@@ -494,19 +487,16 @@ def main(argv=sys.argv[1:]):
 
     backup = not args.no_backup
     dict_synonyms = [x.strip() for x in args.dict_synonyms]
-    # TODO: replace command
+
     if args.command == 'show':
-        return show_main(dict_synonyms, args.show_only_file, args.mutant_id)
-
-    if args.command == 'results':
-        return results_main()
-
-    if args.command == 'junitxml':
+        return show_main(args.mutant_i, dict_synonyms)
+    elif args.command == 'results':
+        return results_main(args.show_diffs, dict_synonyms, args.show_only_file)
+    elif args.command == 'junitxml':
         return junitxml_main(dict_synonyms, args.suspicious_policy, args.untested_policy)
-
-    if args.command == 'apply':
+    elif args.command == 'apply':
         return apply_main(args.mutant_id, dict_synonyms, backup)
-    if args.command == 'run':
+    elif args.command == 'run':
         return run_main(
             args.paths_to_mutate,
             backup,
