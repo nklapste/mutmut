@@ -489,7 +489,7 @@ def main(argv=sys.argv[1:]):
     dict_synonyms = [x.strip() for x in args.dict_synonyms]
 
     if args.command == 'show':
-        return show_main(args.mutant_i, dict_synonyms)
+        return show_main(args.mutant_id, dict_synonyms)
     elif args.command == 'results':
         return results_main(args.show_diffs, dict_synonyms, args.show_only_file)
     elif args.command == 'junitxml':
