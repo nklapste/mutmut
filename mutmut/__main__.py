@@ -109,11 +109,11 @@ null_out = open(os.devnull, 'w')
 
 
 class Config(object):
-    def __init__(self, swallow_output, test_command, exclude_callback,
+    def __init__(self, show_runner_output, test_command, exclude_callback,
                  baseline_time_elapsed, test_time_multiplier, test_time_base,
                  backup, dict_synonyms, total, using_testmon,
                  tests_dirs, hash_of_tests, pre_mutation, post_mutation):
-        self.swallow_output = swallow_output
+        self.show_runner_output = show_runner_output
         self.test_command = test_command
         self.exclude_callback = exclude_callback
         self.baseline_time_elapsed = baseline_time_elapsed
@@ -240,8 +240,8 @@ def get_argparser():
     # TODO: wack
     run_parser.add_argument(
         "-s",
-        "--swallow-output",
-        dest="swallow_output",
+        "--show-runner-output",
+        dest="show_runner_output",
         action="store_true",
         help="print test runner output during mutation tests."
     )
@@ -313,7 +313,7 @@ def get_argparser():
 
 def run_main(paths_to_mutate, backup, runner, test_paths,
              test_time_multiplier, test_time_base,
-             swallow_output, use_coverage, dict_synonyms, pre_mutation, post_mutation,
+             show_runner_output, use_coverage, dict_synonyms, pre_mutation, post_mutation,
              use_patch_file, paths_to_exclude, mutant_id=None):
     if not paths_to_mutate:
         paths_to_mutate = [guess_paths_to_mutate()]
@@ -357,7 +357,7 @@ Legend for output:
     """)
     using_testmon = '--testmon' in runner
     baseline_time_elapsed = time_test_suite(
-        swallow_output=not swallow_output,
+        show_runner_output=show_runner_output,
         test_command=runner,
         using_testmon=using_testmon
     )
@@ -419,7 +419,7 @@ Legend for output:
 
     print('2. Checking mutants')
     config = Config(
-        swallow_output=not swallow_output,
+        show_runner_output=show_runner_output,
         test_command=runner,
         exclude_callback=_exclude,
         baseline_time_elapsed=baseline_time_elapsed,
@@ -490,7 +490,7 @@ def main(argv=sys.argv[1:]):
             args.tests_dir,
             args.test_time_multiplier,
             args.test_time_base,
-            args.swallow_output,
+            args.show_runner_output,
             args.use_coverage,
             dict_synonyms,
             args.pre_mutation,
@@ -622,7 +622,7 @@ def tests_pass(config):
         copy('.testmondata-initial', '.testmondata')
 
     def feedback(line):
-        if not config.swallow_output:
+        if config.show_runner_output:
             print(line)
         config.print_progress()
 
@@ -751,12 +751,12 @@ def read_patch_data(patch_file_path):
     }
 
 
-def time_test_suite(swallow_output, test_command, using_testmon):
+def time_test_suite(show_runner_output, test_command, using_testmon):
     """Execute a test suite specified by ``test_command`` and record
     the time it took to execute the test suite as a floating point number
 
-    :param swallow_output: if :obj:`True` test stdout will be not be printed
-    :type swallow_output: bool
+    :param show_runner_output: if :obj:`False` test stdout will be not be printed
+    :type show_runner_output: bool
 
     :param test_command: command to spawn the testing subprocess
     :type test_command: str
@@ -780,7 +780,7 @@ def time_test_suite(swallow_output, test_command, using_testmon):
     output = []
 
     def feedback(line):
-        if not swallow_output:
+        if show_runner_output:
             print(line)
         print_status('Running...')
         output.append(line)
