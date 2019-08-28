@@ -1,6 +1,7 @@
 #!/usr/bin/env python
 # -*- coding: utf-8 -*-
 
+import argparse
 import fnmatch
 import itertools
 import os
@@ -17,6 +18,7 @@ from time import time
 import click
 from glob2 import glob
 
+from mutmut import __version__ as mutmut_version
 from mutmut import mutate_file, Context, list_mutations, __version__, \
     BAD_TIMEOUT, OK_SUSPICIOUS, BAD_SURVIVED, OK_KILLED, UNTESTED
 from mutmut.cache import register_mutants, update_mutant_status, \
@@ -145,18 +147,18 @@ class Config(object):
 
 DEFAULT_TESTS_DIR = 'tests/:test/'
 
-import argparse
-
 
 def get_argparser():
     parser = argparse.ArgumentParser(
+        description="Python mutation testing made easy.",
         formatter_class=argparse.ArgumentDefaultsHelpFormatter,
     )
 
     parser.add_argument(
         "--version",
-        action="store_true",
-        help="display mutmut lib version."
+        action="version",
+        help="display mutmut lib version.",
+        version='%(prog)s {}'.format(mutmut_version)
     )
     parser.add_argument(
         "--no-backup",
@@ -167,10 +169,11 @@ def get_argparser():
     )
     parser.add_argument(
         "--dict-synonyms",
-        dest="dict_synonyms"
+        dest="dict_synonyms",
+        nargs="*"
     )
 
-    subparsers = parser.add_subparsers(title='command')
+    subparsers = parser.add_subparsers(title='command', dest='command')
 
     run_parser = subparsers.add_parser(
         "run",
@@ -273,7 +276,7 @@ def get_argparser():
 
     show_parser = subparsers.add_parser(
         "show",
-        help="show a mutation's diff."
+        help="show a mutant"
     )
     show_parser.add_argument(
         "--show-diffs"
@@ -285,7 +288,7 @@ def get_argparser():
     show_parser_group = show_parser.add_argument_group().add_mutually_exclusive_group()
     show_parser_group.add_argument(
         "--mutant-id",
-        help="if specified only this mutant's diffs will be shown."
+        help="if specified only this mutant will be shown."
     )
     show_parser_group.add_argument(
         "--all"
@@ -312,40 +315,20 @@ def get_argparser():
     return parser
 
 
-def version_main():
-    print("mutmut version {}".format(__version__))
+def junitxml_main(dict_synonyms, suspicious_policy, untested_policy):
+    print_result_cache_junitxml(dict_synonyms, suspicious_policy,
+                                untested_policy)
     return 0
 
 
-def climain(argv=sys.argv[1:]):
-    parser = get_argparser()
-    args = parser.parse_args(argv)
-    print(args)
-    print(args.__dict__)
-    if args.version:
-        return version_main()
+def results_main():
+    print_result_cache()
+    return 0
 
-    # if test_time_base is None:  # click sets the default=0.0 to None
-    #     test_time_base = 0.0
-    # if test_time_multiplier is None:  # click sets the default=0.0 to None
-    #     test_time_multiplier = 0.0
-    sys.exit(main(
-        args.command,
-        args.paths_to_mutate,
-        not args.no_backup,
-        args.runner,
-        args.tests_dir,
-        args.test_time_multiplier,
-        args.test_time_base,
-        args.swallow_output,
-        args.use_coverage,
-        args.dict_synonyms,
-        args.cache_only,
-        args.suspicious_policy,
-        args.untested_policy,
-        args.pre_mutation,
-        args.post_mutation,
-        args.use_patch_file, args.paths_to_exclude, args.show_only_file))
+
+def apply_main(mutant_id, dict_synonyms, backup):
+    do_apply(mutant_id, dict_synonyms, backup)
+    return 0
 
 
 def show_main(dict_synonyms, show_only_file, mutant_id=None):
@@ -369,8 +352,12 @@ def run_main(paths_to_mutate, backup, runner, tests_dir,
         paths_to_mutate = [x.strip() for x in paths_to_mutate.split(',')]
 
     if not paths_to_mutate:
-        raise click.BadOptionUsage('--paths-to-mutate',
-                                   'You must specify a list of paths to mutate. Either as a command line argument, or by setting paths_to_mutate under the section [mutmut] in setup.cfg')
+        raise ValueError(
+            "No paths to mutate were found. You must manually specify the "
+            "list of paths to mutate. Either as a command line argument using"
+            " the '--paths-to-mutate' argument, or by setting paths_to_mutate "
+            "under the section [mutmut] in setup.cfg"
+        )
 
     tests_dirs = []
     for p in tests_dir.split(':'):
@@ -381,8 +368,8 @@ def run_main(paths_to_mutate, backup, runner, tests_dir,
             tests_dirs.extend(glob(p + '/**/' + pt, recursive=True))
     del tests_dir
 
-    os.environ[
-        'PYTHONDONTWRITEBYTECODE'] = '1'  # stop python from creating .pyc files
+    # stop python from creating .pyc files
+    os.environ['PYTHONDONTWRITEBYTECODE'] = '1'
 
     print("""
     - Mutation testing starting -
@@ -492,52 +479,47 @@ def run_main(paths_to_mutate, backup, runner, tests_dir,
         print()  # make sure we end the output with a newline
 
 
-def main(command, paths_to_mutate, backup, runner, tests_dir,
-         test_time_multiplier, test_time_base,
-         swallow_output, use_coverage, dict_synonyms, cache_only,
-         suspicious_policy, untested_policy, pre_mutation, post_mutation,
-         use_patch_file, paths_to_exclude, show_only_file, mutant_id=None):
+def main(argv=sys.argv[1:]):
     """return exit code, after performing an mutation test run.
 
     :return: the exit code from executing the mutation tests
     :rtype: int
     """
+    parser = get_argparser()
+    args = parser.parse_args(argv)
 
-    dict_synonyms = [x.strip() for x in dict_synonyms.split(',')]
+    backup = not args.no_backup
+    dict_synonyms = [x.strip() for x in args.dict_synonyms.split(',')]
     # TODO: replace command
-    if command == 'show':
-        return show_main(dict_synonyms, show_only_file, mutant_id)
+    if args.command == 'show':
+        return show_main(dict_synonyms, args.show_only_file, args.mutant_id)
 
-    if command == 'results':
+    if args.command == 'results':
         return results_main()
 
-    if command == 'junitxml':
-        return junitxml_main(dict_synonyms, suspicious_policy, untested_policy)
+    if args.command == 'junitxml':
+        return junitxml_main(dict_synonyms, args.suspicious_policy, args.untested_policy)
 
-    if command == 'apply':
-        return apply_main(mutant_id, dict_synonyms, backup)
-
-    return run_main(paths_to_mutate, backup, runner, tests_dir,
-             test_time_multiplier, test_time_base,
-             swallow_output, use_coverage, dict_synonyms, cache_only,
-             pre_mutation, post_mutation,
-             use_patch_file, paths_to_exclude, mutant_id=None)
-
-
-def junitxml_main(dict_synonyms, suspicious_policy, untested_policy):
-    print_result_cache_junitxml(dict_synonyms, suspicious_policy,
-                                untested_policy)
-    return 0
-
-
-def results_main():
-    print_result_cache()
-    return 0
-
-
-def apply_main(mutant_id, dict_synonyms, backup):
-    do_apply(mutant_id, dict_synonyms, backup)
-    return 0
+    if args.command == 'apply':
+        return apply_main(args.mutant_id, dict_synonyms, backup)
+    if args.command == 'run':
+        return run_main(
+            args.paths_to_mutate,
+            backup,
+            args.runner,
+            args.tests_dir,
+            args.test_time_multiplier,
+            args.test_time_base,
+            args.swallow_output,
+            args.use_coverage,
+            dict_synonyms,
+            args.cache_only,
+            args.pre_mutation,
+            args.post_mutation,
+            args.use_patch_file,
+            args.paths_to_exclude,
+            mutant_id=args.mutant_id
+        )
 
 
 def get_mutations_by_file_from_cache(mutation_pk):
@@ -909,4 +891,4 @@ def compute_exit_code(config, exception=None):
 
 
 if __name__ == '__main__':
-    climain()
+    sys.exit(main())
