@@ -111,7 +111,7 @@ null_out = open(os.devnull, 'w')
 class Config(object):
     def __init__(self, swallow_output, test_command, exclude_callback,
                  baseline_time_elapsed, test_time_multiplier, test_time_base,
-                 backup, dict_synonyms, total, using_testmon, cache_only,
+                 backup, dict_synonyms, total, using_testmon,
                  tests_dirs, hash_of_tests, pre_mutation, post_mutation):
         self.swallow_output = swallow_output
         self.test_command = test_command
@@ -125,7 +125,6 @@ class Config(object):
         self.using_testmon = using_testmon
         self.progress = 0
         self.skipped = 0
-        self.cache_only = cache_only
         self.tests_dirs = tests_dirs
         self.hash_of_tests = hash_of_tests
         self.killed_mutants = 0
@@ -258,12 +257,6 @@ def get_argparser():
         dest="use_patch_file",
         help='only mutate lines added/changed in the given patch file.'
     )
-    # TODO: doc
-    run_parser.add_argument(
-        "--cache-only",
-        dest="cache_only",
-        action="store_true",
-    )
 
     results_parser = subparsers.add_parser(
         "results",
@@ -320,8 +313,7 @@ def get_argparser():
 
 def run_main(paths_to_mutate, backup, runner, test_paths,
              test_time_multiplier, test_time_base,
-             swallow_output, use_coverage, dict_synonyms, cache_only,
-             pre_mutation, post_mutation,
+             swallow_output, use_coverage, dict_synonyms, pre_mutation, post_mutation,
              use_patch_file, paths_to_exclude, mutant_id=None):
     if not paths_to_mutate:
         paths_to_mutate = [guess_paths_to_mutate()]
@@ -435,7 +427,6 @@ Legend for output:
         dict_synonyms=dict_synonyms,
         total=total,
         using_testmon=using_testmon,
-        cache_only=cache_only,
         tests_dirs=tests_dirs,
         hash_of_tests=hash_of_tests(tests_dirs),
         test_time_multiplier=test_time_multiplier,
@@ -502,7 +493,6 @@ def main(argv=sys.argv[1:]):
             args.swallow_output,
             args.use_coverage,
             dict_synonyms,
-            args.cache_only,
             args.pre_mutation,
             args.post_mutation,
             args.use_patch_file,
