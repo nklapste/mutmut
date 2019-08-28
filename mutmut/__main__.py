@@ -270,11 +270,13 @@ def get_argparser():
         help='print cached mutmut results.'
     )
     results_parser.add_argument(
-        "--show-diffs"
+        "--show-diffs",
+        help="show mutation diffs of each mutant."
     )
     results_parser.add_argument(
         "--show-only-file",
-        dest="show_only_file"
+        dest="show_only_file",
+        help="show results only for the specified source file."
     )
 
     apply_parser = subparsers.add_parser(
@@ -316,28 +318,6 @@ def get_argparser():
     return parser
 
 
-def junitxml_main(dict_synonyms, suspicious_policy, untested_policy):
-    print_result_cache_junitxml(dict_synonyms, suspicious_policy,
-                                untested_policy)
-    return 0
-
-
-def results_main(show_diffs, dict_synonyms, show_only_file):
-    print_result_cache(show_diffs=show_diffs, dict_synonyms=dict_synonyms,
-                       print_only_filename=show_only_file)
-    return 0
-
-
-def apply_main(mutant_id, dict_synonyms, backup):
-    do_apply(mutant_id, dict_synonyms, backup)
-    return 0
-
-
-def show_main(mutant_id, dict_synonyms):
-    print(get_unified_diff(mutant_id, dict_synonyms))
-    return 0
-
-
 def run_main(paths_to_mutate, backup, runner, test_paths,
              test_time_multiplier, test_time_base,
              swallow_output, use_coverage, dict_synonyms, cache_only,
@@ -346,7 +326,6 @@ def run_main(paths_to_mutate, backup, runner, test_paths,
     if not paths_to_mutate:
         paths_to_mutate = [guess_paths_to_mutate()]
     paths_to_mutate = [path.strip() for path in paths_to_mutate]
-
     if not paths_to_mutate:
         raise ValueError(
             "No paths to mutate were found. You must manually specify the "
@@ -367,22 +346,22 @@ def run_main(paths_to_mutate, backup, runner, test_paths,
     os.environ['PYTHONDONTWRITEBYTECODE'] = '1'
 
     print("""
-    - Mutation testing starting -
+- Mutation testing starting -
 
-    These are the steps:
-    1. A full test suite run will be made to make sure we
-       can run the tests successfully and we know how long
-       it takes (to detect infinite loops for example)
-    2. Mutants will be generated and checked
+These are the steps:
+1. A full test suite run will be made to make sure we
+   can run the tests successfully and we know how long
+   it takes (to detect infinite loops for example)
+2. Mutants will be generated and checked
 
-    Results are stored in .mutmut-cache.
-    Print found mutants with `mutmut results`.
+Results are stored in .mutmut-cache.
+Print found mutants with `mutmut results`.
 
-    Legend for output:
-    🎉 Killed mutants.   The goal is for everything to end up in this bucket.
-    ⏰ Timeout.          Test suite took 10 times as long as the baseline so were killed.
-    🤔 Suspicious.       Tests took a long time, but not long enough to be fatal.
-    🙁 Survived.         This means your tests needs to be expanded.
+Legend for output:
+🎉 Killed mutants.   The goal is for everything to end up in this bucket.
+⏰ Timeout.          Test suite took 10 times as long as the baseline so were killed.
+🤔 Suspicious.       Tests took a long time, but not long enough to be fatal.
+🙁 Survived.         This means your tests needs to be expanded.
     """)
     using_testmon = '--testmon' in runner
     baseline_time_elapsed = time_test_suite(
@@ -489,13 +468,29 @@ def main(argv=sys.argv[1:]):
     dict_synonyms = [x.strip() for x in args.dict_synonyms]
 
     if args.command == 'show':
-        return show_main(args.mutant_id, dict_synonyms)
+        print(get_unified_diff(mutant_pk=args.mutant_id, dict_synonyms=dict_synonyms))
+        return 0
     elif args.command == 'results':
-        return results_main(args.show_diffs, dict_synonyms, args.show_only_file)
+        print_result_cache(
+            show_diffs=args.show_diffs,
+            print_only_filename=args.show_only_file,
+            dict_synonyms=dict_synonyms
+        )
+        return 0
     elif args.command == 'junitxml':
-        return junitxml_main(dict_synonyms, args.suspicious_policy, args.untested_policy)
+        print_result_cache_junitxml(
+            dict_synonyms=dict_synonyms,
+            suspicious_policy=args.suspicious_policy,
+            untested_policy=args.untested_policy
+        )
+        return 0
     elif args.command == 'apply':
-        return apply_main(args.mutant_id, dict_synonyms, backup)
+        do_apply(
+            mutation_pk=args.mutant_id,
+            dict_synonyms=dict_synonyms,
+            backup=backup
+        )
+        return 0
     elif args.command == 'run':
         return run_main(
             args.paths_to_mutate,

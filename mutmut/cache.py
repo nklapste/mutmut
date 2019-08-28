@@ -113,13 +113,6 @@ def get_apply_line(mutant):
 @init_db
 @db_session
 def print_result_cache(show_diffs=False, dict_synonyms=None, print_only_filename=None):
-    print('To apply a mutant on disk:')
-    print('    mutmut apply <id>')
-    print('')
-    print('To show a mutant:')
-    print('    mutmut show <id>')
-    print('')
-
     def print_stuff(title, mutant_query):
         mutant_list = list(sorted(mutant_query, key=lambda x: x.line.sourcefile.filename))
         if mutant_list:
