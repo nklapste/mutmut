@@ -312,7 +312,8 @@ def get_argparser():
 
 def run_main(paths_to_mutate, backup, runner, test_dirs,
              test_time_multiplier, test_time_base,
-             show_runner_output, use_coverage, dict_synonyms, pre_mutation, post_mutation,
+             show_runner_output, use_coverage, dict_synonyms,
+             pre_mutation, post_mutation,
              use_patch_file, paths_to_exclude, mutant_id=None):
     if not paths_to_mutate:
         paths_to_mutate = [guess_paths_to_mutate()]
