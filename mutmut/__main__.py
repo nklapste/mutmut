@@ -111,8 +111,8 @@ null_out = open(os.devnull, 'w')
 class Config(object):
     def __init__(self, show_runner_output, test_command, exclude_callback,
                  baseline_time_elapsed, test_time_multiplier, test_time_base,
-                 backup, dict_synonyms, total, using_testmon,
-                 tests_dirs, hash_of_tests, pre_mutation, post_mutation):
+                 backup, dict_synonyms, total, using_testmon, hash_of_tests,
+                 pre_mutation, post_mutation):
         self.show_runner_output = show_runner_output
         self.test_command = test_command
         self.exclude_callback = exclude_callback
@@ -125,7 +125,6 @@ class Config(object):
         self.using_testmon = using_testmon
         self.progress = 0
         self.skipped = 0
-        self.tests_dirs = tests_dirs
         self.hash_of_tests = hash_of_tests
         self.killed_mutants = 0
         self.surviving_mutants = 0
@@ -311,13 +310,14 @@ def get_argparser():
     return parser
 
 
-def run_main(paths_to_mutate, backup, runner, test_paths,
+def run_main(paths_to_mutate, backup, runner, test_dirs,
              test_time_multiplier, test_time_base,
              show_runner_output, use_coverage, dict_synonyms, pre_mutation, post_mutation,
              use_patch_file, paths_to_exclude, mutant_id=None):
     if not paths_to_mutate:
         paths_to_mutate = [guess_paths_to_mutate()]
-    paths_to_mutate = [path.strip() for path in paths_to_mutate]
+    else:
+        paths_to_mutate = paths_to_mutate
     if not paths_to_mutate:
         raise ValueError(
             "No paths to mutate were found. You must manually specify the "
@@ -326,13 +326,12 @@ def run_main(paths_to_mutate, backup, runner, test_paths,
             "under the section [mutmut] in setup.cfg"
         )
 
-    tests_dirs = []
-    for test_path in test_paths:
-        tests_dirs.extend(glob(test_path, recursive=True))
-
+    test_paths = []
+    for test_dir in test_dirs:
+        test_paths.extend(glob(test_dir, recursive=True))
     for mutate_path in paths_to_mutate:
-        for pt in test_paths:
-            tests_dirs.extend(glob(mutate_path + '/**/' + pt, recursive=True))
+        for pt in test_dirs:
+            test_paths.extend(glob(mutate_path + '/**/' + pt, recursive=True))
 
     # stop python from creating .pyc files
     os.environ['PYTHONDONTWRITEBYTECODE'] = '1'
@@ -409,7 +408,7 @@ Legend for output:
     else:
         mutations_by_file = gen_mutations_by_file(
             paths_to_mutate=paths_to_mutate,
-            tests_dirs=tests_dirs,
+            tests_dirs=test_paths,
             paths_to_exclude=paths_to_exclude,
             dict_synonyms=dict_synonyms,
             exclude_check=_exclude,
@@ -427,8 +426,7 @@ Legend for output:
         dict_synonyms=dict_synonyms,
         total=total,
         using_testmon=using_testmon,
-        tests_dirs=tests_dirs,
-        hash_of_tests=hash_of_tests(tests_dirs),
+        hash_of_tests=hash_of_tests(test_paths),
         test_time_multiplier=test_time_multiplier,
         test_time_base=test_time_base,
         pre_mutation=pre_mutation,
